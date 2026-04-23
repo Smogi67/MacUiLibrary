@@ -1061,7 +1061,7 @@ local AvatarImg=Instance.new("ImageLabel"); AvatarImg.Size=UDim2.fromScale(1,1)
 AvatarImg.BackgroundTransparency=1; AvatarImg.Image=""; AvatarImg.ScaleType=Enum.ScaleType.Fit
 AvatarImg.ZIndex=18; AvatarImg.Visible=false; AvatarImg.Parent=Avatar
 -- White ring border on top of image
-local avStroke=Instance.new("UIStroke"); avStroke.Color=Color3.fromRGB(255,255,255); avStroke.Transparency=0.6; avStroke.Thickness=1; avStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; avStroke.Parent=Avatar
+do local avStroke=Instance.new("UIStroke"); avStroke.Color=Color3.fromRGB(255,255,255); avStroke.Transparency=0.6; avStroke.Thickness=1; avStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; avStroke.Parent=Avatar end
 
 local ProfName=Instance.new("TextLabel"); ProfName.Size=UDim2.new(1,-62,0,20); ProfName.Position=UDim2.fromOffset(58,12)
 ProfName.BackgroundTransparency=1; ProfName.Text=player.DisplayName; ProfName.Font=Enum.Font.GothamBold; ProfName.TextSize=14
@@ -1096,8 +1096,8 @@ SBScroll.ScrollingDirection=Enum.ScrollingDirection.Y
 SBScroll.ZIndex=14; SBScroll.Parent=Sidebar
 local SBList=Instance.new("Frame"); SBList.Size=UDim2.fromScale(1,0); SBList.AutomaticSize=Enum.AutomaticSize.Y
 SBList.BackgroundTransparency=1; SBList.ZIndex=14; SBList.Parent=SBScroll
-local sbl=Instance.new("UIListLayout"); sbl.Padding=UDim.new(0,0); sbl.SortOrder=Enum.SortOrder.LayoutOrder; sbl.Parent=SBList
-local sbp=Instance.new("UIPadding"); sbp.PaddingLeft=UDim.new(0,8); sbp.PaddingRight=UDim.new(0,8); sbp.PaddingTop=UDim.new(0,4); sbp.Parent=SBList
+do local sbl=Instance.new("UIListLayout"); sbl.Padding=UDim.new(0,0); sbl.SortOrder=Enum.SortOrder.LayoutOrder; sbl.Parent=SBList end
+do local sbp=Instance.new("UIPadding"); sbp.PaddingLeft=UDim.new(0,8); sbp.PaddingRight=UDim.new(0,8); sbp.PaddingTop=UDim.new(0,4); sbp.Parent=SBList end
 
 -- ============================================================
 -- CONTENT AREA
@@ -1122,8 +1122,8 @@ TabFadeOverlay.Name="TabFadeOverlay"
 TabFadeOverlay.Size=UDim2.fromScale(1,1); TabFadeOverlay.BackgroundColor3=Color3.fromRGB(20,20,24)
 TabFadeOverlay.BackgroundTransparency=1; TabFadeOverlay.BorderSizePixel=0
 TabFadeOverlay.ZIndex=20; TabFadeOverlay.Parent=ContentScroll
-local cl=Instance.new("UIListLayout"); cl.Padding=UDim.new(0,0); cl.SortOrder=Enum.SortOrder.LayoutOrder; cl.Parent=ContentList
-local clp=Instance.new("UIPadding"); clp.PaddingLeft=UDim.new(0,24); clp.PaddingRight=UDim.new(0,24); clp.PaddingTop=UDim.new(0,22); clp.PaddingBottom=UDim.new(0,28); clp.Parent=ContentList
+do local cl=Instance.new("UIListLayout"); cl.Padding=UDim.new(0,0); cl.SortOrder=Enum.SortOrder.LayoutOrder; cl.Parent=ContentList end
+do local clp=Instance.new("UIPadding"); clp.PaddingLeft=UDim.new(0,24); clp.PaddingRight=UDim.new(0,24); clp.PaddingTop=UDim.new(0,22); clp.PaddingBottom=UDim.new(0,28); clp.Parent=ContentList end
 
 -- Close any open dropdown if the user scrolls more than 45px from where it was opened
 local SCROLL_CLOSE_THRESHOLD = 45
@@ -1188,7 +1188,7 @@ DI_Frame.BackgroundTransparency=1
 DI_Frame.BorderSizePixel=0; DI_Frame.ClipsDescendants=false
 DI_Frame.ZIndex=100; DI_Frame.Visible=true; DI_Frame.Parent=ScreenGui
 DI_Frame.Position=UDim2.new(0.5,0,0,DI_Y); DI_Frame.Size=UDim2.fromOffset(DI_DOT,DI_DOT)  -- AnchorPoint(0.5,0.5) so Y is the midpoint
-local diCorner=Instance.new("UICorner"); diCorner.CornerRadius=UDim.new(1,0); diCorner.Parent=DI_Frame
+do local diCorner=Instance.new("UICorner"); diCorner.CornerRadius=UDim.new(1,0); diCorner.Parent=DI_Frame end
 local diStroke=Instance.new("UIStroke"); diStroke.Color=Color3.fromRGB(255,255,255)
 diStroke.Transparency=0.78; diStroke.Thickness=1
 diStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; diStroke.Parent=DI_Frame
@@ -1624,9 +1624,6 @@ local LG_scrollMem     = {}   -- remembers ContentScroll position per tab
 local LG_theme         = "glass"
 local applyTheme       = nil
 local ALPHA_WINDOW   = 0.18
-local ALPHA_TITLEBAR = 0.25
-local ALPHA_SIDEBAR  = 0.22
-local ALPHA_OVERLAY  = 0.15
 
 
 -- ============================================================
@@ -3333,7 +3330,7 @@ SRF.Visible = false
 SRF.ZIndex = 60
 SRF.Parent = ScreenGui
 -- Rounded corners + stroke only — no liquidGlass gradient (causes glitch on dark bg)
-local srfCorner = Instance.new("UICorner"); srfCorner.CornerRadius = UDim.new(0,10); srfCorner.Parent = SRF
+do local srfCorner = Instance.new("UICorner"); srfCorner.CornerRadius = UDim.new(0,10); srfCorner.Parent = SRF end
 local srfStroke = Instance.new("UIStroke"); srfStroke.Color = Color3.fromRGB(255,255,255)
 srfStroke.Transparency = 0.78; srfStroke.Thickness = 1
 srfStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; srfStroke.Parent = SRF
@@ -4593,11 +4590,7 @@ local function makeEdge(axis, anchor)
 	return f
 end
 
-local edgeTop    = makeEdge("H", 0)
-local edgeBottom = makeEdge("H", 1)
-local edgeLeft   = makeEdge("V", 0)
-local edgeRight  = makeEdge("V", 1)
-local glowEdges  = {edgeTop, edgeBottom, edgeLeft, edgeRight}
+local glowEdges  = {makeEdge("H",0), makeEdge("H",1), makeEdge("V",0), makeEdge("V",1)}
 
 -- Subtle ambient bloom
 local GlowBloom = Instance.new("Frame")
@@ -4693,7 +4686,6 @@ end
 -- Edit ONLY below this line. The library code above does not need to be changed.
 -- ============================================================
 
-do -- USER CONFIG BLOCK (do...end keeps locals out of the top-level register pool)
 -- ── Window & profile config ──────────────────────────────────
 -- Profile name/avatar are auto-set from LocalPlayer.
 -- Use SetConfig to override anything.
@@ -4898,5 +4890,3 @@ poopSec:AddSlider("lolllloopsosls", 1, function(v)
     LiquidGlass:Notify("never mind", math.round(v*100).."%", "slider")
   end
 end)
-
-end -- USER CONFIG BLOCK
