@@ -18,13 +18,16 @@
   ─────────────────────────────────────────────────────────
   Call once before AddTab to customise the window.
   opts fields (all optional):
-    title          string   Title in the top bar           default "System Settings"
-    profileName    string   Name shown on the profile card default "Player"
-    profileSub     string   Sub-text under the name        default "Apple ID · iCloud"
-    profileInitial string   Single letter avatar initial   default first letter of name
-    accentColor    Color3   Main accent / active colour    default RGB(10,132,255)
-    windowAlpha    number   0–1 window opacity (0=glass)   default 0.18
-
+    title             string   Title in the top bar                default "Mac-Ui-Library"
+    profileName       string   Name shown on the profile card      default "Player"
+    profileSub        string   Sub-text under the name             default "Apple ID · iCloud"
+    profileInitial    string   Single letter avatar initial        default first letter of name
+    accentColor       Color3   Global accent colour (toggles,      default blue #016DEE
+                               sliders, active sidebar items)
+    windowAlpha       number   Window background transparency      default varies by theme
+                               0.0 (opaque) – 1.0 (invisible)
+    theme             string   Initial theme: "glass" or "solid"   default "glass"
+    lockTheme         bool     Prevent later SetTheme() calls      default false
   ─────────────────────────────────────────────────────────
   LiquidGlass:AddTab(tabName, iconName, subText?)
   ─────────────────────────────────────────────────────────
@@ -63,6 +66,10 @@
     label         string    Row label
     defaultValue  number    0.0 – 1.0 initial position
     callback      function? Called with (newValue: number) on change
+
+  DYNAMIC ISLAND LIVE UPDATES — if your callback calls Notify, NotifyWarning,
+  or NotifyError, the island's accent colour and progress bar colour update
+  live while dragging (e.g. turns yellow when threshold is crossed).
   Returns: control handle with :SetValue(number) / :GetValue()
 
   ─────────────────────────────────────────────────────────
@@ -71,6 +78,15 @@
     label   string   Left label
     value   string   Right value text (chevron › appended automatically)
   Returns: control handle with :SetValue(string) to update the right text
+
+  ─────────────────────────────────────────────────────────
+  section:AddLabel(text)
+  ─────────────────────────────────────────────────────────
+  Adds a text-only row — no left/right split, no button, no chevron.
+  Use for descriptions, hints, or any freeform copy inside a card.
+  Text wraps automatically if it overflows the row width.
+    text   string   The text to display
+  Returns: control handle with :SetValue(string) / :GetValue()
 
   ─────────────────────────────────────────────────────────
   section:AddDropdown(label, options, defaultIndex, callback?)
@@ -82,6 +98,30 @@
   Returns: control handle with :SetValue(index) / :GetValue()
 
   ─────────────────────────────────────────────────────────
+  section:AddColorPicker(label, defaultColor, callback?)
+  ─────────────────────────────────────────────────────────
+  Adds a colour picker row. The right side shows a "Choose Color"
+  pill button with a small colour circle indicator on its left edge
+  that always reflects the current colour.
+  Clicking the button opens a floating panel to the LEFT of the
+  button containing:
+    • Hue bar        — drag to change the hue (full spectrum)
+    • Brightness bar — drag to lighten/darken (black → full hue)
+  The panel is non-modal: scrolling, other controls, and traffic
+  buttons all remain usable. Scrolling >45px closes the panel.
+  Only one colour picker (or dropdown) can be open at a time —
+  opening any other panel closes the current one automatically.
+  Opening a prompt also closes any open colour picker.
+  The callback fires once when the Done button is clicked, not on
+  every drag tick. The Dynamic Island shows a live hex badge while
+  dragging.
+    label         string    Row label
+    defaultColor  Color3    Initial colour          default blue accent
+    callback      function? Called with (Color3) when a drag ends
+  Returns: control handle with :GetValue() → Color3
+                               :SetValue(Color3)
+
+  ─────────────────────────────────────────────────────────
   section:AddButton(label, buttonText, callback?)
   ─────────────────────────────────────────────────────────
     label       string    Row label (left side)
@@ -89,32 +129,127 @@
     callback    function? Called when button is clicked
   Returns: control handle
 
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PROMPTS (DIALOG SHEETS)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Three prompt types are available. All prompts:
+    • Block all UI interaction (scrolling, clicks) while open
+    • Animate in/out using the same spring as the main window
+    • Respond to the current theme (glass / solid)
+    • Always include a Cancel button on the left
+
+  ─────────────────────────────────────────────────────────
+  LiquidGlass:ShowMultiPrompt(opts)   — Multi-option prompt
+  ─────────────────────────────────────────────────────────
+  Shows a sheet with a title, body text, and up to three
+  action buttons plus the always-present Cancel.
+  Each button occupies its own full-width row (stacked).
+  Button colours: "blue" (solid accent) or "grey" (neutral).
+
+  opts fields:
+    title         string    Bold header text
+    body          string    Secondary message text
+    buttons       {table}   Array of button definitions:
+                              { text=string, color="blue"|"grey", callback=function? }
+  Example:
+    LiquidGlass:ShowMultiPrompt({
+        title   = "Are you sure you want to quit this process?",
+        body    = 'Do you really want to quit "Spotify"?',
+        buttons = {
+            { text="Quit",       color="blue", callback=function() print("Quit") end },
+            { text="Force Quit", color="grey"  },
+        },
+    })
+
+  ─────────────────────────────────────────────────────────
+  LiquidGlass:ShowConfirmPrompt(opts)  — Confirmation prompt
+  ─────────────────────────────────────────────────────────
+  Shows a sheet with a title, body text, and two side-by-side
+  buttons: Cancel on the left, a blue confirm button on the right.
+
+  opts fields:
+    title         string    Bold header text
+    body          string    Secondary message text
+    confirmText   string    Label for the blue confirm button  default "OK"
+    onConfirm     function? Called when the confirm button is pressed
+  Example:
+    LiquidGlass:ShowConfirmPrompt({
+        title       = "Are you sure you want to empty Trash automatically?",
+        body        = "Items left in the Trash for more than 30 days will be automatically erased.",
+        confirmText = "Turn On",
+        onConfirm   = function() print("Trash auto-empty enabled") end,
+    })
+
+  ─────────────────────────────────────────────────────────
+  LiquidGlass:ShowWarningPrompt(opts)  — Destructive warning
+  ─────────────────────────────────────────────────────────
+  Same side-by-side layout as ShowConfirmPrompt. The confirm
+  button has a translucent red background with red text,
+  signalling a destructive or irreversible action.
+
+  opts fields:
+    title         string    Bold header text
+    body          string    Secondary message text
+    confirmText   string    Label for the red confirm button  default "Delete"
+    onConfirm     function? Called when the confirm button is pressed
+  Example:
+    LiquidGlass:ShowWarningPrompt({
+        title       = "Delete Spotlight Search History",
+        body        = "All history associated with Spotlight Search will be deleted.",
+        confirmText = "Delete",
+        onConfirm   = function() print("History cleared") end,
+    })
+
   ─────────────────────────────────────────────────────────
   CONTROLS BEHAVIOUR NOTES
   ─────────────────────────────────────────────────────────
   Toggles    — pill squeezes and springs back on click.
                Knob slides with a springy overshoot.
-  Sliders    — scrolling is locked while dragging.
-               If opted into notifications via Notif.Slider,
-               the Dynamic Island tracks the value live while
-               dragging. On release the progress bar jiggles.
-               Switching sliders quickly collapses the island
-               back to a dot and reopens for the new one.
+  Sliders    — only one slider can be dragged at a time.
+               Scrolling is locked while dragging.
+               The Dynamic Island opens on press and tracks
+               the value live. The progress bar is thicker
+               while held, thins back on release.
+               If the callback fires NotifyWarning/NotifyError
+               the island accent updates live as you drag.
+               Switching to another slider collapses the island
+               and reopens immediately for the new one.
   Dropdowns  — opens with a spring-expand animation.
                Dismisses with a bounce when closed without
                selecting. Panel repositions on scroll.
+  ColorPicker— "Choose Color" button with a live colour circle.
+               Opens a non-modal floating panel to the LEFT of
+               the button. Two bars: hue (top) and brightness
+               (bottom). Horizontal scrolling is locked while
+               dragging a bar. Panel closes on scroll >45px,
+               clicking outside, Done button, or when any
+               dropdown/prompt is opened.
+               Dynamic Island shows a live hex badge while
+               dragging; callback fires once on mouse release.
   Buttons    — press-down then spring-back from centre.
 
   DYNAMIC ISLAND BEHAVIOUR
   ─────────────────────────────────────────────────────────
   A permanent black dot is always visible at the top-centre
-  of the screen. Notifications spring open from it and
-  collapse back to it when dismissed.
-  Island width auto-sizes to fit the label and badge text.
-  Slider notifications show a progress bar that jiggles
-  once after the island is fully expanded.
+  of the screen, vertically aligned with Roblox core GUI icons.
+  Notifications spring open from it and collapse back.
 
-  LiquidGlass:Open()  /  LiquidGlass:Close()
+  ON COLLAPSE — content fades out, then the island collapses
+  directly to a circle (no line phase), then pulses slightly
+  outward and settles back.
+
+  HOVER     — island grows slightly; shrinks back on mouse leave.
+  CLICK     — collapses the current notification immediately.
+
+  Island width auto-sizes to fit the label and badge text.
+  Slider notifications show a progress bar at the bottom edge.
+
+  TIMING CONSTANTS (near top of library, easy to adjust):
+    DI_HOLD_TIME          — how long regular notifications stay open  (default 3.5s)
+    DI_SLIDER_HOLD_TIME   — how long slider notifications stay after release (default 2.0s)
+    DI_EXPAND_TIME        — expand animation duration  (default 0.5s)
+    DI_SLIDER_EXPAND_TIME — slider expand duration, faster (default 0.25s)
 
   ─────────────────────────────────────────────────────────
   DYNAMIC ISLAND — OPT-IN PER CONTROL
@@ -140,6 +275,16 @@
         else LiquidGlass:NotifyWarning("Disabled", "Off") end
     end)
 
+  OPTION 3 — Slider with live threshold colour change:
+    sec:AddSlider("Volume", 0.3, function(v)
+        if v > 0.8 then
+            LiquidGlass:NotifyWarning("High volume", math.round(v*100).."%")
+        else
+            LiquidGlass:Notify("Volume", math.round(v*100).."%", "slider")
+        end
+    end)
+    -- The island accent/progress bar turns yellow above 80% live while dragging.
+
   ─────────────────────────────────────────────────────────
   LiquidGlass:Notify(label, value?, notifType?)
   ─────────────────────────────────────────────────────────
@@ -152,28 +297,33 @@
                          "dropdown" blue   ◆
                          "button"   blue   ▶
                          "custom"   orange ●
-                         "error"    red    ✕
-                         "warning"  yellow ⚠
+                         "error"    red    X
+                         "warning"  yellow !
   Examples:
     LiquidGlass:Notify("Game saved")
     LiquidGlass:Notify("Round started", "Wave 3")
     LiquidGlass:Notify("Volume", "72%", "slider")
 
   ─────────────────────────────────────────────────────────
+  LiquidGlass:NotifySlider(label, pct)
+  ─────────────────────────────────────────────────────────
+  Fire a slider-style Dynamic Island notification with a
+  filled progress bar. Use when setting a slider value from
+  code rather than via a drag interaction.
+    label   string   Text shown in the island
+    pct     number   0.0 – 1.0 fill amount for the progress bar
+  Example:
+    LiquidGlass:NotifySlider("Volume", 0.80)
+
+  ─────────────────────────────────────────────────────────
   LiquidGlass:NotifyError(label, value?)
   ─────────────────────────────────────────────────────────
   Shorthand for a red error notification.
-  Examples:
-    LiquidGlass:NotifyError("Connection failed")
-    LiquidGlass:NotifyError("Load failed", "Timeout")
 
   ─────────────────────────────────────────────────────────
   LiquidGlass:NotifyWarning(label, value?)
   ─────────────────────────────────────────────────────────
   Shorthand for a yellow warning notification.
-  Examples:
-    LiquidGlass:NotifyWarning("Low memory", "128MB")
-    LiquidGlass:NotifyWarning("Unsaved changes")
 
   ─────────────────────────────────────────────────────────
   LiquidGlass:Open()  /  LiquidGlass:Close()
@@ -185,6 +335,30 @@
   ─────────────────────────────────────────────────────────
   Programmatically navigate to a tab by name.
   Example: LiquidGlass:SelectTab("Graphics")
+
+  ─────────────────────────────────────────────────────────
+  LiquidGlass:SetTheme(themeName)
+  ─────────────────────────────────────────────────────────
+  Switch the visual theme at runtime.
+    themeName   string   "glass"  — frosted translucent panels (default)
+                         "solid"  — opaque dark panels (#121214 / #0E0E10)
+  Returns true on success, false if the theme name is invalid or the
+  theme has been locked via LockTheme() or SetConfig({ lockTheme=true }).
+  No-op while a prompt is open.
+
+  ─────────────────────────────────────────────────────────
+  LiquidGlass:GetTheme()
+  ─────────────────────────────────────────────────────────
+  Returns the current theme name: "glass" or "solid".
+
+  ─────────────────────────────────────────────────────────
+  LiquidGlass:LockTheme(locked)
+  ─────────────────────────────────────────────────────────
+  Prevent or re-allow runtime theme changes.
+    locked   bool   true  — SetTheme() calls are ignored
+                    false — SetTheme() calls are accepted again
+  Equivalent to passing lockTheme=true in SetConfig, but can be
+  toggled at any time.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   EXAMPLE (copy-paste into USER CONFIGURATION at the bottom)
@@ -230,6 +404,15 @@
   -- later update it:
   -- statusInfo:SetValue("EU West")
 
+  -- Colour picker — callback receives the chosen Color3 on drag release
+  local colourSection = graphicsTab:AddSection("Colour")
+  local accentPicker = colourSection:AddColorPicker("Accent", Color3.fromRGB(1, 109, 238), function(col)
+      -- apply col to your game UI here
+  end)
+  -- Read or set the value from code:
+  -- local current = accentPicker:GetValue()
+  -- accentPicker:SetValue(Color3.fromRGB(255, 80, 120))
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ]]
 
@@ -237,13 +420,40 @@
 -- SERVICES
 -- ============================================================
 local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting         = game:GetService("Lighting")
 local GuiService       = game:GetService("GuiService")
 
+local gui = game:GetService("CoreGui")
 local player    = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+
+-- ============================================================
+-- VERSION GATE
+-- Runs before anything is built. If another LiquidGlassUI already
+-- exists in CoreGui, compare versions and destroy the older one.
+-- If this script IS the older one, destroy self and stop executing.
+-- ============================================================
+local LG_VERSION = 103  -- bump this integer to force newer instance to win
+
+do
+	local existing = gui:FindFirstChild("LiquidGlassUI")
+	if existing then
+		local otherVer = existing:GetAttribute("LGVersion") or 0
+		if LG_VERSION > otherVer then
+			-- We are newer: close the old one
+			warn("[LiquidGlass] Duplicate detected — closing older instance (v" .. otherVer .. "). Running version: v" .. LG_VERSION .. ".")
+			existing:Destroy()
+			local oldBlur = Lighting:FindFirstChild("LGBlur")
+			if oldBlur then oldBlur:Destroy() end
+		elseif LG_VERSION <= otherVer then
+			-- We are the same version or older: stop this script
+			warn("[LiquidGlass] Duplicate detected — closing this instance (v" .. LG_VERSION .. "). Running version: v" .. otherVer .. ".")
+			return
+		end
+	end
+end
 
 -- ============================================================
 -- TWEEN HELPER
@@ -258,29 +468,34 @@ end
 -- ============================================================
 -- THEME
 -- ============================================================
+-- Palette: macOS Tahoe dark mode. Accent colours are the punchier, more
+-- saturated variants Tahoe introduced; neutrals are slightly warmer than
+-- Big Sur/Monterey to match the overall system shift.
 local T = {
-	sidebarBg    = Color3.fromRGB(28, 28, 32),
-	windowBg     = Color3.fromRGB(34, 34, 38),
-	cardBg       = Color3.fromRGB(58, 58, 66),
-	stroke       = Color3.fromRGB(140, 140, 160),
+	sidebarBg    = Color3.fromRGB(30, 30, 34),
+	windowBg     = Color3.fromRGB(36, 36, 40),
+	cardBg       = Color3.fromRGB(62, 62, 70),
+	stroke       = Color3.fromRGB(150, 150, 170),
 	textPrimary  = Color3.fromRGB(255, 255, 255),
-	textSecond   = Color3.fromRGB(180, 180, 192),
-	textTertiary = Color3.fromRGB(120, 120, 135),
-	blue         = Color3.fromRGB(10, 132, 255),
-	green        = Color3.fromRGB(48, 209,  88),
-	orange       = Color3.fromRGB(255, 159, 10),
-	red          = Color3.fromRGB(255,  69, 58),
-	yellow       = Color3.fromRGB(255, 214, 10),
-	toggleOn     = Color3.fromRGB(50, 215, 75),
-	toggleOff    = Color3.fromRGB(72, 72, 80),
-	sliderFill   = Color3.fromRGB(10, 132, 255),
-	sliderTrack  = Color3.fromRGB(86, 86, 96),
-	activeItem   = Color3.fromRGB(10, 132, 255),
-	hoverItem    = Color3.fromRGB(70, 70, 80),
-	dropdownBg   = Color3.fromRGB(46, 46, 52),
-	dropdownHov  = Color3.fromRGB(68, 68, 80),
-	btnBg        = Color3.fromRGB(60, 60, 70),
-	btnHov       = Color3.fromRGB(80, 80, 96),
+	textSecond   = Color3.fromRGB(190, 190, 202),
+	textTertiary = Color3.fromRGB(130, 130, 145),
+	blue         = Color3.fromRGB(1, 109, 238),    -- #016DEE accent
+	green        = Color3.fromRGB(52, 224, 94),    -- more saturated, closer to Tahoe's "vivid green"
+	orange       = Color3.fromRGB(255, 170, 20),   -- warmer, punchier
+	red          = Color3.fromRGB(255, 82, 76),    -- slightly warmer/pinker, softer black levels
+	yellow       = Color3.fromRGB(255, 222, 40),   -- brighter, more lemon-leaning
+	purple       = Color3.fromRGB(192, 132, 252),  -- new: Tahoe added a vivid purple accent
+	pink         = Color3.fromRGB(255, 96, 160),   -- new: Tahoe pink accent
+	toggleOn     = Color3.fromRGB(52, 224, 94),
+	toggleOff    = Color3.fromRGB(76, 76, 84),
+	sliderFill   = Color3.fromRGB(1, 109, 238),
+	sliderTrack  = Color3.fromRGB(90, 90, 102),
+	activeItem   = Color3.fromRGB(1, 109, 238),
+	hoverItem    = Color3.fromRGB(74, 74, 86),
+	dropdownBg   = Color3.fromRGB(48, 48, 56),
+	dropdownHov  = Color3.fromRGB(72, 72, 86),
+	btnBg        = Color3.fromRGB(64, 64, 74),
+	btnHov       = Color3.fromRGB(86, 86, 102),
 }
 
 -- ============================================================
@@ -403,44 +618,142 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name="LiquidGlassUI"; ScreenGui.ResetOnSpawn=false
 ScreenGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-ScreenGui.IgnoreGuiInset=true; ScreenGui.Parent=playerGui
+ScreenGui.IgnoreGuiInset=true; ScreenGui.Parent=gui
+ScreenGui:SetAttribute("LGVersion", LG_VERSION)  -- used by version gate on next run
+
+-- ── Responsive UIScale for phone viewports ───────────────────
+-- Applies a uniform transform to every child of ScreenGui when the viewport
+-- falls below the reference design size. AbsolutePosition / AbsoluteSize are
+-- reported in post-scale screen pixels, so any code that computes a position
+-- from screen-space inputs and writes it back as a UDim2 offset must divide
+-- by uiScale.Scale. At scale == 1 (iPad / desktop) all such divisions are
+-- no-ops and behavior is identical to v96.
+local uiScale = Instance.new("UIScale")
+uiScale.Scale = 1
+uiScale.Parent = ScreenGui
+
+local function updateScale()
+	local vp = workspace.CurrentCamera.ViewportSize
+	-- Reference design minimum: below this, shrink proportionally.
+	-- Threshold min(vp.X,vp.Y) < 500 catches iPhones but leaves iPads (744+) alone.
+	local REF_W, REF_H = 700, 550
+	if math.min(vp.X, vp.Y) < 500 then
+		local sx = vp.X / REF_W
+		local sy = vp.Y / REF_H
+		uiScale.Scale = math.min(sx, sy, 1)
+	else
+		uiScale.Scale = 1
+	end
+end
+updateScale()
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
 
 local Blur = Instance.new("BlurEffect"); Blur.Name="LGBlur"; Blur.Size=0; Blur.Parent=Lighting
 
 -- Forward declarations — these are built later but referenced in traffic button handlers
 local SRF
 local SearchBox
+local PromptBlocker  -- created at line ~2774, referenced inside buildColorPicker closures
 
 local Overlay = Instance.new("Frame")
 Overlay.Size=UDim2.fromScale(1,1); Overlay.BackgroundColor3=Color3.fromRGB(8,10,18)
-Overlay.BackgroundTransparency=0.15; Overlay.BorderSizePixel=0; Overlay.ZIndex=10; Overlay.Parent=ScreenGui
+Overlay.BackgroundTransparency=1; Overlay.BorderSizePixel=0; Overlay.ZIndex=10
+Overlay.Visible=false; Overlay.Parent=ScreenGui
 
 local Shadow = Instance.new("ImageLabel")
 Shadow.AnchorPoint=Vector2.new(0.5,0.5); Shadow.Position=UDim2.fromScale(0.5,0.5)
 Shadow.BackgroundTransparency=1; Shadow.Image="rbxasset://textures/ui/Controls/DropShadow.png"
-Shadow.ImageColor3=Color3.new(0,0,0); Shadow.ImageTransparency=0.45
+Shadow.ImageColor3=Color3.new(0,0,0); Shadow.ImageTransparency=1
 Shadow.ScaleType=Enum.ScaleType.Slice; Shadow.SliceCenter=Rect.new(12,12,244,244)
-Shadow.ZIndex=10; Shadow.Parent=ScreenGui
+Shadow.ZIndex=10; Shadow.Visible=false; Shadow.Parent=ScreenGui
+
+-- Opaque dark (default). Glass mode uses T.windowBg/T.sidebarBg with transparency.
 
 local Window = Instance.new("Frame")
 Window.AnchorPoint=Vector2.new(0.5,0.5); Window.Position=UDim2.fromScale(0.5,0.5)
-Window.BackgroundColor3=T.windowBg; Window.BackgroundTransparency=0.18
-Window.BorderSizePixel=0; Window.ZIndex=11; Window.ClipsDescendants=true; Window.Parent=ScreenGui
+Window.BackgroundColor3=T.windowBg; Window.BackgroundTransparency=1
+Window.BorderSizePixel=0; Window.ZIndex=11; Window.ClipsDescendants=true
+Window.Visible=false; Window.Parent=ScreenGui
+
+-- Opaque backdrop used by the Solid theme. Sits directly behind Window
+-- and blocks the game world from showing through. Invisible in glass mode.
+local WindowBackdrop = Instance.new("Frame")
+WindowBackdrop.Name = "WindowBackdrop"
+WindowBackdrop.AnchorPoint = Vector2.new(0.5, 0.5)
+WindowBackdrop.Position = UDim2.fromScale(0.5, 0.5)
+WindowBackdrop.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+WindowBackdrop.BackgroundTransparency = 1
+WindowBackdrop.BorderSizePixel = 0
+WindowBackdrop.ZIndex = 10
+WindowBackdrop.Parent = ScreenGui
+local _bdCorner = Instance.new("UICorner")
+_bdCorner.CornerRadius = UDim.new(0, 14)
+_bdCorner.Parent = WindowBackdrop
+-- Keep backdrop sized and positioned to match Window at all times
+local function syncBackdrop()
+	WindowBackdrop.Size = Window.Size
+	WindowBackdrop.Position = Window.Position
+	WindowBackdrop.AnchorPoint = Window.AnchorPoint
+end
+Window:GetPropertyChangedSignal("Size"):Connect(syncBackdrop)
+Window:GetPropertyChangedSignal("Position"):Connect(syncBackdrop)
+task.defer(syncBackdrop)
 liquidGlass(Window,{radius=18,sheen=true,strokeT=0.45})
 
 -- Responsive size
 local minimized,maximized=false,false
 local function getWinSize()
 	local vp=workspace.CurrentCamera.ViewportSize
-	return math.clamp(vp.X*0.84,520,1080), math.clamp(vp.Y*0.84,420,760)
+	local inset=GuiService:GetGuiInset()
+	local s = uiScale.Scale
+	if s < 1 then
+		-- Phone path: respect topbar inset and let window fill available height.
+		-- The 760 desktop cap is meaningless once UIScale has already shrunk UI.
+		local usableY = vp.Y - inset.Y
+		local maxH = (usableY*0.92)/s
+		return math.clamp((vp.X*0.84)/s,520,1080), math.clamp((usableY*0.84)/s,420,maxH)
+	else
+		-- Desktop / iPad path: identical to v97 — do not touch iPad behavior.
+		return math.clamp(vp.X*0.84,520,1080), math.clamp(vp.Y*0.84,420,760)
+	end
+end
+-- Centering position that respects the Roblox topbar inset on phones, and is
+-- identical to UDim2.fromScale(0.5,0.5) on desktop/iPad (no behavior change).
+local function getRestPosition()
+	local s = uiScale.Scale
+	if s < 1 then
+		local vp=workspace.CurrentCamera.ViewportSize
+		local inset=GuiService:GetGuiInset()
+		local centerY = (inset.Y + (vp.Y - inset.Y)/2) / s
+		return UDim2.new(0.5, 0, 0, centerY)
+	else
+		return UDim2.fromScale(0.5, 0.5)
+	end
 end
 local function applyWinSize()
 	if maximized or minimized then return end
 	local w,h=getWinSize()
+	local pos=getRestPosition()
 	Window.Size=UDim2.fromOffset(w,h); Shadow.Size=UDim2.fromOffset(w+80,h+80)
+	Window.Position=pos; Shadow.Position=pos
 end
 applyWinSize()
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(applyWinSize)
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+	-- Rerun updateScale BEFORE applyWinSize so getWinSize sees the fresh scale.
+	updateScale()
+	applyWinSize()
+end)
+-- On mobile, workspace.CurrentCamera.ViewportSize is sometimes stale for the
+-- first frame or two after script load. Recompute on the next RenderStepped
+-- so the initial window size is based on the real viewport, not a stale value.
+-- Without this, the window renders at the wrong size on mobile until something
+-- (e.g. clicking the maximize button) forces a recompute with fresh viewport.
+task.spawn(function()
+	RunService.RenderStepped:Wait()
+	RunService.RenderStepped:Wait()
+	updateScale()
+	applyWinSize()
+end)
 
 -- ============================================================
 -- TITLE BAR
@@ -451,10 +764,10 @@ TitleBar.BackgroundTransparency=0.25; TitleBar.BorderSizePixel=0; TitleBar.ZInde
 liquidGlass(TitleBar,{radius=18,sheen=true,strokeT=0.7})
 local TBMask=Instance.new("Frame"); TBMask.Size=UDim2.new(1,0,0,18)
 TBMask.Position=UDim2.new(0,0,1,-18); TBMask.BackgroundColor3=T.sidebarBg
-TBMask.BackgroundTransparency=0.25; TBMask.BorderSizePixel=0; TBMask.ZIndex=14; TBMask.Parent=TitleBar
+TBMask.BackgroundTransparency=1; TBMask.BorderSizePixel=0; TBMask.ZIndex=14; TBMask.Parent=TitleBar
 
 local TitleLbl=Instance.new("TextLabel"); TitleLbl.Size=UDim2.fromScale(1,1)
-TitleLbl.BackgroundTransparency=1; TitleLbl.Text="System Settings"
+TitleLbl.BackgroundTransparency=1; TitleLbl.Text="Mac-Ui-Library"
 TitleLbl.Font=Enum.Font.GothamBold; TitleLbl.TextSize=14
 TitleLbl.TextColor3=T.textPrimary; TitleLbl.ZIndex=16; TitleLbl.Parent=TitleBar
 
@@ -481,11 +794,41 @@ end
 
 -- Close
 local DockIcon=nil
+-- Flag set by the color picker panel to block traffic buttons while open
+local LG_colorPickerOpen = false
+local LG_activeColorPickerClose = nil  -- close fn of the currently open color picker panel
+local LG_closePanelsInstant = false    -- set true by minimize/close so panels hide immediately
+-- Forward declarations so close/minimize buttons (defined here) can reference DI internals
+local DI_Frame
+local diCancelAll
+local diClearContent
+local diShow
+local diLabel
+local diIcon
+local diAccent
+local activeDropdown      = nil  -- forward-declared so traffic buttons can close it
+local activeDropdownClose = nil  -- forward-declared so traffic buttons can close it
 trafficButtons[1].MouseButton1Click:Connect(function()
+	LG_closePanelsInstant = true
+	if LG_activeColorPickerClose then LG_activeColorPickerClose() end
+	if activeDropdownClose then activeDropdownClose(); activeDropdown=nil; activeDropdownClose=nil end
+	LG_closePanelsInstant = false
 	SRF.Visible = false
-	tween(Window,0.3,{Size=UDim2.fromOffset(0,0),BackgroundTransparency=1})
+	-- DI collapse animation: punch out then shrink to nothing
+	diCancelAll()
+	diClearContent()
+	local curW = DI_Frame.AbsoluteSize.X
+	local curH = DI_Frame.AbsoluteSize.Y
+	DI_Frame.BackgroundTransparency = 0
+	tween(DI_Frame, 0.10, {Size=UDim2.fromOffset(curW+10, curH+6)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	task.delay(0.10, function()
+		tween(DI_Frame, 0.28, {Size=UDim2.fromOffset(0,0), BackgroundTransparency=1},
+			Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+	end)
+	-- Window close
+	tween(Window,0.35,{Size=UDim2.fromOffset(0,0),BackgroundTransparency=1},Enum.EasingStyle.Quint,Enum.EasingDirection.In)
 	tween(Shadow,0.3,{ImageTransparency=1}); tween(Overlay,0.3,{BackgroundTransparency=1}); tween(Blur,0.3,{Size=0})
-	task.delay(0.35,function()
+	task.delay(0.5,function()
 		if DockIcon then DockIcon:Destroy() end
 		ScreenGui:Destroy(); Blur:Destroy()
 	end)
@@ -525,28 +868,104 @@ local function createDockIcon()
 	DockIcon.MouseButton1Click:Connect(function()
 		if moved then return end
 		minimized=false
+		-- Shrink and fade the icon out immediately
+		local icon = DockIcon
+		tween(icon,0.18,{Size=UDim2.fromOffset(0,0),BackgroundTransparency=1},Enum.EasingStyle.Back,Enum.EasingDirection.In)
+		task.delay(0.18,function() if icon then icon:Destroy(); DockIcon=nil end end)
+		-- Restore window
 		Overlay.BackgroundTransparency=1; Blur.Size=0
 		Window.BackgroundTransparency=1; Shadow.ImageTransparency=1
 		Overlay.Visible=true; Window.Visible=true; Shadow.Visible=true
 		local w,h=getWinSize()
-		tween(Window,0.4,{Size=UDim2.fromOffset(w,h),Position=UDim2.fromScale(0.5,0.5),BackgroundTransparency=0.18},Enum.EasingStyle.Back)
-		tween(Shadow,0.4,{Size=UDim2.fromOffset(w+80,h+80),Position=UDim2.fromScale(0.5,0.5),ImageTransparency=0.45})
+		local pos=getRestPosition()
+		tween(Window,0.4,{Size=UDim2.fromOffset(w,h),Position=pos,BackgroundTransparency=0.18},Enum.EasingStyle.Back)
+		tween(Shadow,0.4,{Size=UDim2.fromOffset(w+80,h+80),Position=pos,ImageTransparency=0.45})
 		tween(Overlay,0.4,{BackgroundTransparency=0.15}); tween(Blur,0.3,{Size=24})
-		task.delay(0.4,function() if DockIcon then DockIcon:Destroy(); DockIcon=nil end end)
 	end)
 	DockIcon.MouseEnter:Connect(function() tween(DockIcon,0.15,{Size=UDim2.fromOffset(62,62)},Enum.EasingStyle.Back) end)
 	DockIcon.MouseLeave:Connect(function() tween(DockIcon,0.15,{Size=UDim2.fromOffset(56,56)}) end)
 end
 
+
+
 trafficButtons[2].MouseButton1Click:Connect(function()
 	if minimized then return end
-	minimized=true; maximized=false
+	minimized=true
+	-- Close any open color picker or dropdown before minimizing
+	LG_closePanelsInstant = true
+	if LG_activeColorPickerClose then LG_activeColorPickerClose() end
+	if activeDropdownClose then activeDropdownClose(); activeDropdown=nil; activeDropdownClose=nil end
+	LG_closePanelsInstant = false
+	-- Save the current window size/position so we can restore exactly to it
+	local savedSize = Window.Size
+	local savedPos  = Window.Position
 	SRF.Visible = false
 	SearchBox.Text = ""
-	tween(Window,0.3,{Size=UDim2.fromOffset(0,0),BackgroundTransparency=1})
-	tween(Shadow,0.3,{ImageTransparency=1}); tween(Overlay,0.3,{BackgroundTransparency=1}); tween(Blur,0.3,{Size=0})
-	task.delay(0.3,function()
-		if minimized then Window.Visible=false; Shadow.Visible=false; createDockIcon() end
+	-- Shrink window toward dock icon position with a quick ease-in
+	local vp = workspace.CurrentCamera.ViewportSize
+	local dockPos = UDim2.new(0.5, 0, 1, -60)
+	tween(Window, 0.32, {Size=UDim2.fromOffset(56,56), Position=dockPos, BackgroundTransparency=1}, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+	tween(WindowBackdrop, 0.20, {BackgroundTransparency=1})
+	tween(Shadow, 0.25, {ImageTransparency=1})
+	tween(Overlay, 0.25, {BackgroundTransparency=1})
+	tween(Blur, 0.25, {Size=0})
+	task.delay(0.32, function()
+		if not minimized then return end
+		Window.Visible=false; Shadow.Visible=false; WindowBackdrop.Visible=false
+		Window.Size=savedSize; Window.Position=savedPos; Window.BackgroundTransparency=0.18
+		WindowBackdrop.BackgroundTransparency=1
+		-- Build dock icon with a restore closure that goes back to saved state
+		if DockIcon then DockIcon:Destroy() end
+		DockIcon=Instance.new("ImageButton"); DockIcon.Name="DockIcon"
+		DockIcon.Size=UDim2.fromOffset(56,56); DockIcon.AnchorPoint=Vector2.new(0.5,0.5)
+		DockIcon.Position=UDim2.new(0.5,0,1,-60); DockIcon.BackgroundColor3=T.blue
+		DockIcon.BorderSizePixel=0; DockIcon.AutoButtonColor=false; DockIcon.Image=""
+		DockIcon.ZIndex=30; DockIcon.Parent=ScreenGui
+		local corner=Instance.new("UICorner"); corner.CornerRadius=UDim.new(0,14); corner.Parent=DockIcon
+		local grad=Instance.new("UIGradient"); grad.Rotation=135
+		grad.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(80,170,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,100,220))})
+		grad.Parent=DockIcon
+		local gear=Instance.new("TextLabel"); gear.Size=UDim2.fromScale(1,1); gear.BackgroundTransparency=1
+		gear.Text="⚙"; gear.Font=Enum.Font.GothamBold; gear.TextSize=32
+		gear.TextColor3=Color3.fromRGB(255,255,255); gear.ZIndex=32; gear.Parent=DockIcon
+		local dragging,dragStart,startPos,moved=false,nil,nil,false
+		DockIcon.InputBegan:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+				dragging=true; moved=false; dragStart=input.Position; startPos=DockIcon.Position
+			end
+		end)
+		UserInputService.InputChanged:Connect(function(input)
+			if not dragging then return end
+			if input.UserInputType~=Enum.UserInputType.MouseMovement and input.UserInputType~=Enum.UserInputType.Touch then return end
+			local delta=input.Position-dragStart
+			if delta.Magnitude>4 then moved=true end
+			DockIcon.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
+		end)
+		UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false end
+		end)
+		DockIcon.MouseButton1Click:Connect(function()
+			if moved then return end
+			minimized=false
+			local icon = DockIcon
+			tween(icon,0.18,{Size=UDim2.fromOffset(0,0),BackgroundTransparency=1},Enum.EasingStyle.Back,Enum.EasingDirection.In)
+			task.delay(0.18,function() if icon then icon:Destroy(); DockIcon=nil end end)
+			Overlay.BackgroundTransparency=1; Blur.Size=0
+			-- Start window at dock icon size/position then spring to saved state
+			Window.Size=UDim2.fromOffset(56,56)
+			Window.Position=UDim2.new(0.5,0,1,-60)
+			Window.BackgroundTransparency=1; Shadow.ImageTransparency=1
+			WindowBackdrop.Size=UDim2.fromOffset(56,56)
+			WindowBackdrop.Position=UDim2.new(0.5,0,1,-60)
+			WindowBackdrop.BackgroundTransparency=1; WindowBackdrop.Visible=true
+			Overlay.Visible=true; Window.Visible=true; Shadow.Visible=true
+			tween(Window,0.45,{Size=savedSize,Position=savedPos,BackgroundTransparency=0.18},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+			tween(WindowBackdrop,0.45,{BackgroundTransparency=1},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+			tween(Shadow,0.45,{Size=UDim2.fromOffset(savedSize.X.Offset+80,savedSize.Y.Offset+80),Position=savedPos,ImageTransparency=0.45},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+			tween(Overlay,0.4,{BackgroundTransparency=0.15}); tween(Blur,0.3,{Size=24})
+		end)
+		DockIcon.MouseEnter:Connect(function() tween(DockIcon,0.15,{Size=UDim2.fromOffset(62,62)},Enum.EasingStyle.Back) end)
+		DockIcon.MouseLeave:Connect(function() tween(DockIcon,0.15,{Size=UDim2.fromOffset(56,56)}) end)
 	end)
 end)
 
@@ -557,15 +976,23 @@ trafficButtons[3].MouseButton1Click:Connect(function()
 	SRF.Visible = false
 	if maximized then
 		maximized=false; local w,h=getWinSize()
-		tween(Window,0.35,{Size=UDim2.fromOffset(w,h),Position=UDim2.fromScale(0.5,0.5)})
-		tween(Shadow,0.35,{Size=UDim2.fromOffset(w+80,h+80),Position=UDim2.fromScale(0.5,0.5)})
+		local pos=getRestPosition()
+		tween(Window,0.38,{Size=UDim2.fromOffset(w,h),Position=pos},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+		tween(Shadow,0.38,{Size=UDim2.fromOffset(w+80,h+80),Position=pos},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
 	else
 		maximized=true
 		local vp=workspace.CurrentCamera.ViewportSize
 		local inset=GuiService:GetGuiInset()
-		local aw,ah=vp.X-40,vp.Y-inset.Y-40
-		tween(Window,0.35,{Size=UDim2.fromOffset(aw,ah),Position=UDim2.new(0.5,0,0,inset.Y+20+ah/2)})
-		tween(Shadow,0.35,{Size=UDim2.fromOffset(aw+80,ah+80),Position=UDim2.new(0.5,0,0,inset.Y+20+ah/2)})
+		-- vp.X, vp.Y and inset.Y are screen-space pixels. Window.Size is
+		-- interpreted as logical units (under UIScale), so divide by scale.
+		-- MARGIN = clearance from screen edges so the window doesn't touch them.
+		local s = uiScale.Scale
+		local MARGIN = 12
+		local aw = (vp.X - MARGIN*2)/s
+		local ah = (vp.Y - inset.Y - MARGIN*2)/s
+		local cy = (inset.Y + MARGIN)/s + ah/2
+		tween(Window,0.38,{Size=UDim2.fromOffset(aw,ah),Position=UDim2.new(0.5,0,0,cy)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+		tween(Shadow,0.38,{Size=UDim2.fromOffset(aw+80,ah+80),Position=UDim2.new(0.5,0,0,cy)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
 	end
 	if hadSearch then
 		-- Reposition after tween completes
@@ -573,11 +1000,12 @@ trafficButtons[3].MouseButton1Click:Connect(function()
 			task.spawn(function()
 				RunService.RenderStepped:Wait()
 				RunService.RenderStepped:Wait()
+				local s = uiScale.Scale
 				local sideX  = Sidebar.AbsolutePosition.X
 				local sideY  = Sidebar.AbsolutePosition.Y
 				local panelH = SRF.Size.Y.Offset
-				SRF.Position = UDim2.fromOffset(sideX + 8, sideY + 10 + 32 + 6 + GuiService:GetGuiInset().Y)
-				SRF.Size     = UDim2.fromOffset(Sidebar.AbsoluteSize.X - 16, panelH)
+				SRF.Position = UDim2.fromOffset((sideX)/s + 8, (sideY + GuiService:GetGuiInset().Y)/s + 10 + 32 + 6)
+				SRF.Size     = UDim2.fromOffset(Sidebar.AbsoluteSize.X/s - 16, panelH)
 				SRF.Visible  = true
 			end)
 		end)
@@ -599,16 +1027,19 @@ SBDiv.BackgroundColor3=Color3.fromRGB(255,255,255); SBDiv.BackgroundTransparency
 SBDiv.BorderSizePixel=0; SBDiv.ZIndex=14; SBDiv.Parent=Sidebar
 
 local SearchWrap=Instance.new("Frame"); SearchWrap.Size=UDim2.new(1,-16,0,32); SearchWrap.Position=UDim2.fromOffset(8,10)
-SearchWrap.BackgroundColor3=Color3.fromRGB(255,255,255); SearchWrap.BackgroundTransparency=0.85
+SearchWrap.BackgroundColor3=T.cardBg; SearchWrap.BackgroundTransparency=0.4
 SearchWrap.BorderSizePixel=0; SearchWrap.ZIndex=15; SearchWrap.Parent=Sidebar
 liquidGlass(SearchWrap,{radius=9,sheen=false,strokeT=0.7})
 local SearchIco=Instance.new("TextLabel"); SearchIco.Size=UDim2.fromOffset(22,32); SearchIco.Position=UDim2.fromOffset(8,0)
-SearchIco.BackgroundTransparency=1; SearchIco.Text="⌕"; SearchIco.Font=Enum.Font.GothamBold; SearchIco.TextSize=16
+SearchIco.BackgroundTransparency=1; SearchIco.Text=""; SearchIco.Font=Enum.Font.GothamBold; SearchIco.TextSize=16
 SearchIco.TextColor3=T.textTertiary; SearchIco.ZIndex=16; SearchIco.Parent=SearchWrap
-SearchBox=Instance.new("TextBox"); SearchBox.Size=UDim2.new(1,-38,1,0); SearchBox.Position=UDim2.fromOffset(30,0)
+SearchBox=Instance.new("TextBox"); SearchBox.Size=UDim2.new(1,-18,1,0); SearchBox.AnchorPoint=Vector2.new(0,0)
+SearchBox.Position=UDim2.new(0,10,0,0)
 SearchBox.BackgroundTransparency=1; SearchBox.PlaceholderText="Search"; SearchBox.PlaceholderColor3=T.textTertiary
 SearchBox.Text=""; SearchBox.Font=Enum.Font.Gotham; SearchBox.TextSize=14
-SearchBox.TextColor3=T.textPrimary; SearchBox.ClearTextOnFocus=false; SearchBox.ZIndex=16; SearchBox.Parent=SearchWrap
+SearchBox.TextColor3=T.textPrimary; SearchBox.ClearTextOnFocus=false
+SearchBox.TextYAlignment=Enum.TextYAlignment.Center; SearchBox.MultiLine=false
+SearchBox.ZIndex=16; SearchBox.Parent=SearchWrap
 
 local ProfileCard=Instance.new("Frame"); ProfileCard.Size=UDim2.new(1,-16,0,64); ProfileCard.Position=UDim2.fromOffset(8,50)
 ProfileCard.BackgroundColor3=T.cardBg; ProfileCard.BackgroundTransparency=0.4
@@ -661,6 +1092,7 @@ local SBScroll=Instance.new("ScrollingFrame")
 SBScroll.Size=UDim2.new(1,0,1,-122); SBScroll.Position=UDim2.fromOffset(0,122)
 SBScroll.BackgroundTransparency=1; SBScroll.BorderSizePixel=0; SBScroll.ScrollBarThickness=0
 SBScroll.CanvasSize=UDim2.fromScale(1,0); SBScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+SBScroll.ScrollingDirection=Enum.ScrollingDirection.Y
 SBScroll.ZIndex=14; SBScroll.Parent=Sidebar
 local SBList=Instance.new("Frame"); SBList.Size=UDim2.fromScale(1,0); SBList.AutomaticSize=Enum.AutomaticSize.Y
 SBList.BackgroundTransparency=1; SBList.ZIndex=14; SBList.Parent=SBScroll
@@ -679,12 +1111,35 @@ ContentScroll.Size=UDim2.fromScale(1,1); ContentScroll.BackgroundTransparency=1
 ContentScroll.BorderSizePixel=0; ContentScroll.ScrollBarThickness=4
 ContentScroll.ScrollBarImageColor3=Color3.fromRGB(255,255,255); ContentScroll.ScrollBarImageTransparency=0.6
 ContentScroll.CanvasSize=UDim2.fromScale(1,0); ContentScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+ContentScroll.ScrollingDirection=Enum.ScrollingDirection.Y
 ContentScroll.ZIndex=12; ContentScroll.Parent=ContentArea
-local ContentList=Instance.new("CanvasGroup")
+local ContentList=Instance.new("Frame")
 ContentList.Size=UDim2.fromScale(1,0); ContentList.AutomaticSize=Enum.AutomaticSize.Y
 ContentList.BackgroundTransparency=1; ContentList.ZIndex=12; ContentList.Parent=ContentScroll
+-- Fade overlay for smooth tab transitions
+local TabFadeOverlay=Instance.new("Frame")
+TabFadeOverlay.Name="TabFadeOverlay"
+TabFadeOverlay.Size=UDim2.fromScale(1,1); TabFadeOverlay.BackgroundColor3=Color3.fromRGB(20,20,24)
+TabFadeOverlay.BackgroundTransparency=1; TabFadeOverlay.BorderSizePixel=0
+TabFadeOverlay.ZIndex=20; TabFadeOverlay.Parent=ContentScroll
 local cl=Instance.new("UIListLayout"); cl.Padding=UDim.new(0,0); cl.SortOrder=Enum.SortOrder.LayoutOrder; cl.Parent=ContentList
 local clp=Instance.new("UIPadding"); clp.PaddingLeft=UDim.new(0,24); clp.PaddingRight=UDim.new(0,24); clp.PaddingTop=UDim.new(0,22); clp.PaddingBottom=UDim.new(0,28); clp.Parent=ContentList
+
+-- Close any open dropdown if the user scrolls more than 45px from where it was opened
+local SCROLL_CLOSE_THRESHOLD = 45
+local scrollAnchorY = 0  -- canvas Y position when the dropdown opened
+-- activeDropdown and activeDropdownClose are forward-declared near the top
+-- so traffic button handlers (defined earlier) can close them correctly.
+
+local function onScroll()
+	if not activeDropdownClose then return end
+	local delta = math.abs(ContentScroll.CanvasPosition.Y - scrollAnchorY)
+	if delta > SCROLL_CLOSE_THRESHOLD then
+		activeDropdownClose(); activeDropdown = nil; activeDropdownClose = nil
+	end
+end
+ContentScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(onScroll)
+SBScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(onScroll)
 
 
 -- ============================================================
@@ -692,100 +1147,172 @@ local clp=Instance.new("UIPadding"); clp.PaddingLeft=UDim.new(0,24); clp.Padding
 -- ============================================================
 local DI_QUEUE     = {}
 local DI_SHOWING   = false
-local DI_HOLD_TIME = 2.2
-local DI_COOLDOWN  = 0.08
 
-local DI_TYPE_ICON = { toggle="◉", slider="≡", dropdown="◆", button="▶", custom="●", error="✕", warning="⚠" }
+-- ── Dynamic Island timing config ─────────────────────────────
+-- How long a regular notification (toggle, button, etc.) stays open (seconds)
+local DI_HOLD_TIME        = 3.5
+-- How long a SLIDER notification stays open after you release (seconds)
+-- Sliders use this instead of DI_HOLD_TIME so they feel snappier
+local DI_SLIDER_HOLD_TIME = 2.0
+-- Gap between queued notifications (seconds)
+local DI_COOLDOWN         = 0.08
+-- How fast the island expands for regular notifications (seconds)
+local DI_EXPAND_TIME      = 0.5
+-- How fast the island expands when a slider interrupts (seconds)
+-- Shorter so it feels like it has priority
+local DI_SLIDER_EXPAND_TIME = 0.25
+-- ─────────────────────────────────────────────────────────────
+
+-- Only one slider can own the drag at a time.
+-- Each slider checks/sets this so releasing always cleans up correctly.
+local activeDragLabel = nil
+local activeTogDrag    = false  -- true while any toggle is being dragged
+
+local DI_TYPE_ICON = { toggle="◉", slider="≡", dropdown="◆", button="▶", custom="●", error="X", warning="!" }
 local DI_TYPE_COLOR = {
 	toggle=T.toggleOn, slider=T.sliderFill, dropdown=T.blue, button=T.blue, custom=T.orange,
 	error=T.red, warning=T.yellow
 }
 
 -- Island frame
-local DI_Frame = Instance.new("Frame")
-DI_Frame.Name="DynamicIsland"; DI_Frame.AnchorPoint=Vector2.new(0.5,0)
-DI_Frame.Position=UDim2.new(0.5,0,0,0); DI_Frame.Size=UDim2.fromOffset(0,36)
--- Position is set properly at first show, after GuiInset is known
-DI_Frame.BackgroundColor3=Color3.fromRGB(10,10,14); DI_Frame.BackgroundTransparency=0
-DI_Frame.BorderSizePixel=0; DI_Frame.ClipsDescendants=true
--- DI_Frame starts as a visible dot and stays visible always — it expands and contracts
+-- Shared size constants — tweak to rescale the whole island
+local DI_DOT = 38   -- resting dot diameter (px)
+local DI_H   = 38   -- expanded island height (px)
+local DI_Y   = 36   -- midpoint of Roblox topbar; use with AnchorPoint(0.5,0.5)
+
+DI_Frame = Instance.new("Frame")
+DI_Frame.Name="DynamicIsland"; DI_Frame.AnchorPoint=Vector2.new(0.5,0.5)
+DI_Frame.BackgroundColor3=Color3.fromRGB(10,10,14)
+-- Start invisible; doIntro fades it in with the rest of the UI
+DI_Frame.BackgroundTransparency=1
+DI_Frame.BorderSizePixel=0; DI_Frame.ClipsDescendants=false
 DI_Frame.ZIndex=100; DI_Frame.Visible=true; DI_Frame.Parent=ScreenGui
-DI_Frame.Position=UDim2.new(0.5,0,0,8); DI_Frame.Size=UDim2.fromOffset(36,36)
+DI_Frame.Position=UDim2.new(0.5,0,0,DI_Y); DI_Frame.Size=UDim2.fromOffset(DI_DOT,DI_DOT)  -- AnchorPoint(0.5,0.5) so Y is the midpoint
 local diCorner=Instance.new("UICorner"); diCorner.CornerRadius=UDim.new(1,0); diCorner.Parent=DI_Frame
 local diStroke=Instance.new("UIStroke"); diStroke.Color=Color3.fromRGB(255,255,255)
 diStroke.Transparency=0.78; diStroke.Thickness=1
 diStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; diStroke.Parent=DI_Frame
 
+-- Content group — faded out as one unit on dismiss so no clipping artefacts
+local diContent=Instance.new("CanvasGroup")
+diContent.Size=UDim2.fromScale(1,1); diContent.BackgroundTransparency=1
+diContent.BorderSizePixel=0; diContent.ZIndex=101; diContent.Parent=DI_Frame
+
 -- Top sheen
 local diSheen=Instance.new("Frame"); diSheen.Size=UDim2.new(1,-4,0.5,0)
 diSheen.Position=UDim2.new(0,2,0,2); diSheen.BackgroundColor3=Color3.fromRGB(255,255,255)
-diSheen.BackgroundTransparency=0.88; diSheen.BorderSizePixel=0; diSheen.ZIndex=101; diSheen.Parent=DI_Frame
+diSheen.BackgroundTransparency=0.88; diSheen.BorderSizePixel=0; diSheen.ZIndex=101; diSheen.Parent=diContent
 Instance.new("UICorner",diSheen).CornerRadius=UDim.new(1,0)
 local diSG=Instance.new("UIGradient"); diSG.Rotation=90
 diSG.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.5),NumberSequenceKeypoint.new(1,1)}); diSG.Parent=diSheen
 
 -- Accent bar
-local diAccent=Instance.new("Frame"); diAccent.Size=UDim2.new(0,3,0.6,0)
+diAccent=Instance.new("Frame"); diAccent.Size=UDim2.new(0,3,0.6,0)
 diAccent.AnchorPoint=Vector2.new(0,0.5); diAccent.Position=UDim2.new(0,10,0.5,0)
 diAccent.BackgroundColor3=T.blue; diAccent.BorderSizePixel=0; diAccent.ZIndex=102
-diAccent.Visible=false; diAccent.Parent=DI_Frame
+diAccent.Visible=false; diAccent.Parent=diContent
 Instance.new("UICorner",diAccent).CornerRadius=UDim.new(1,0)
 
 -- Icon
-local diIcon=Instance.new("TextLabel"); diIcon.Size=UDim2.fromOffset(22,36)
-diIcon.Position=UDim2.fromOffset(18,0); diIcon.BackgroundTransparency=1
-diIcon.Font=Enum.Font.GothamBold; diIcon.TextSize=14
-diIcon.TextColor3=Color3.fromRGB(255,255,255); diIcon.ZIndex=102; diIcon.Parent=DI_Frame
+diIcon=Instance.new("TextLabel"); diIcon.Size=UDim2.fromOffset(22,DI_H)
+diIcon.Position=UDim2.fromOffset(16,0); diIcon.BackgroundTransparency=1
+diIcon.Text=""; diIcon.Font=Enum.Font.GothamBold; diIcon.TextSize=13
+diIcon.TextColor3=Color3.fromRGB(255,255,255); diIcon.ZIndex=102; diIcon.Parent=diContent
 
 -- Main label
-local diLabel=Instance.new("TextLabel"); diLabel.Size=UDim2.new(1,-100,1,0)
-diLabel.Position=UDim2.fromOffset(44,0); diLabel.BackgroundTransparency=1
-diLabel.Font=Enum.Font.GothamSemibold; diLabel.TextSize=13
+diLabel=Instance.new("TextLabel"); diLabel.Size=UDim2.new(1,-96,1,0)
+diLabel.Position=UDim2.fromOffset(42,0); diLabel.BackgroundTransparency=1
+diLabel.Text=""; diLabel.Font=Enum.Font.GothamSemibold; diLabel.TextSize=12
 diLabel.TextColor3=Color3.fromRGB(255,255,255); diLabel.TextXAlignment=Enum.TextXAlignment.Left
-diLabel.TextTruncate=Enum.TextTruncate.AtEnd; diLabel.ZIndex=102; diLabel.Parent=DI_Frame
+diLabel.TextTruncate=Enum.TextTruncate.AtEnd; diLabel.ZIndex=102; diLabel.Parent=diContent
 
 -- Value badge
-local diBadge=Instance.new("Frame"); diBadge.Size=UDim2.fromOffset(0,22)
+local diBadge=Instance.new("Frame"); diBadge.Size=UDim2.fromOffset(0,20)
 diBadge.AnchorPoint=Vector2.new(1,0.5); diBadge.Position=UDim2.new(1,-10,0.5,0)
 diBadge.BackgroundColor3=Color3.fromRGB(40,40,50); diBadge.BorderSizePixel=0
-diBadge.ZIndex=102; diBadge.Visible=false; diBadge.Parent=DI_Frame
+diBadge.ZIndex=102; diBadge.Visible=false; diBadge.Parent=diContent
 Instance.new("UICorner",diBadge).CornerRadius=UDim.new(0,6)
 local diBStr=Instance.new("UIStroke"); diBStr.Color=Color3.fromRGB(255,255,255)
 diBStr.Transparency=0.82; diBStr.Thickness=0.8; diBStr.Parent=diBadge
 local diBadgeLbl=Instance.new("TextLabel"); diBadgeLbl.Size=UDim2.fromScale(1,1)
-diBadgeLbl.BackgroundTransparency=1; diBadgeLbl.Font=Enum.Font.GothamBold; diBadgeLbl.TextSize=11
+diBadgeLbl.BackgroundTransparency=1; diBadgeLbl.Font=Enum.Font.GothamBold; diBadgeLbl.TextSize=10
 diBadgeLbl.TextColor3=Color3.fromRGB(220,220,230); diBadgeLbl.ZIndex=103; diBadgeLbl.Parent=diBadge
 
 -- Slider progress bar (bottom edge of island)
 local diProgress=Instance.new("Frame"); diProgress.Size=UDim2.fromOffset(0,2)
 diProgress.AnchorPoint=Vector2.new(0,1); diProgress.Position=UDim2.new(0,0,1,0)
 diProgress.BackgroundColor3=T.sliderFill; diProgress.BorderSizePixel=0
-diProgress.ZIndex=103; diProgress.Visible=false; diProgress.Parent=DI_Frame
+diProgress.ZIndex=103; diProgress.Visible=false; diProgress.Parent=diContent
 Instance.new("UICorner",diProgress).CornerRadius=UDim.new(1,0)
+
+-- ── Hover / click interaction ─────────────────────────────────────
+local diHitbox = Instance.new("TextButton")
+diHitbox.Size=UDim2.fromScale(1,1); diHitbox.BackgroundTransparency=1
+diHitbox.Text=""; diHitbox.AutoButtonColor=false
+diHitbox.ZIndex=110; diHitbox.Parent=DI_Frame
+
+local function diRestoreSize()
+	local targetW = DI_SHOWING and diCurrentTotalW or DI_DOT
+	local targetH = DI_SHOWING and DI_H or DI_DOT
+	tween(DI_Frame, 0.3, {Size=UDim2.fromOffset(targetW, targetH)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
+-- Hover: grow slightly on enter, restore on leave
+diHitbox.MouseEnter:Connect(function()
+	if activeDragLabel ~= nil then return end
+	local cw = DI_Frame.AbsoluteSize.X; local ch = DI_Frame.AbsoluteSize.Y
+	tween(DI_Frame, 0.18, {Size=UDim2.fromOffset(cw+8, ch+4)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+end)
+diHitbox.MouseLeave:Connect(function()
+	if activeDragLabel ~= nil then return end
+	diRestoreSize()
+end)
 
 -- ── Dismiss / show logic ─────────────────────────────────────
 local diDismissThread  = nil
 local diCollapseThread = nil
+local diExpandTextTask = nil  -- task.delay for revealing text after expand
+local diExpandJigTask  = nil  -- task.delay for progress bar jiggle after expand
+local diHideThread     = nil  -- task.delay for final diHide() after collapse
 local diCurrentLabel   = nil
+local diCurrentType    = nil  -- current DI type: "slider"/"warning"/"error"/etc.
 local diCurrentTotalW  = 190
 local diOpening        = false  -- true while expand animation is in progress
 
-local function diCancelAll()
+diClearContent = function()
+	diIcon.Text = ""
+	diLabel.Text = ""
+	diBadgeLbl.Text = ""
+	diBadge.Visible = false
+	diAccent.Visible = false
+	diProgress.Visible = false
+	diProgress.Size = UDim2.fromOffset(0, 2)
+end
+
+diCancelAll = function()
 	if diDismissThread  then task.cancel(diDismissThread);  diDismissThread  = nil end
 	if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+	if diExpandTextTask then task.cancel(diExpandTextTask); diExpandTextTask = nil end
+	if diExpandJigTask  then task.cancel(diExpandJigTask);  diExpandJigTask  = nil end
+	if diHideThread     then task.cancel(diHideThread);     diHideThread     = nil end
 	diOpening = false
 end
 
 local function diHide()
+	diHideThread = nil
 	diCollapseThread = nil
 	-- Snap back to dot — frame stays visible
-	DI_Frame.Size = UDim2.fromOffset(36, 36)
+	DI_Frame.Size = UDim2.fromOffset(DI_DOT, DI_DOT)
 	DI_Frame.BackgroundTransparency = 0
-	diProgress.Size = UDim2.fromOffset(0, 2)
-	diProgress.Visible = false
-	diAccent.Visible = false
-	diIcon.Text = ""; diLabel.Text = ""; diBadgeLbl.Text = ""
-	diBadge.Visible = false
+	-- Clear all content THEN restore GroupTransparency so nothing flashes inside the dot
+	diClearContent()
+	if diLabel then
+		diLabel.TextColor3 = T.textPrimary
+		diLabel.TextXAlignment = Enum.TextXAlignment.Left
+		diLabel.Size = UDim2.new(1,-96,1,0)
+		diLabel.Position = UDim2.fromOffset(42,0)
+	end
+	diContent.GroupTransparency = 0  -- ready for next notification
 	DI_SHOWING = false
 	diCurrentLabel = nil
 	if #DI_QUEUE > 0 then
@@ -794,16 +1321,71 @@ local function diHide()
 	end
 end
 
-local function diDismiss()
-	diDismissThread = nil
-	diAccent.Visible = false
-	diIcon.Text = ""; diLabel.Text = ""; diBadgeLbl.Text = ""
-	diBadge.Visible = false; diProgress.Visible = false
-	tween(DI_Frame, 0.25, {Size=UDim2.fromOffset(36, 36)}, Enum.EasingStyle.Quart)
-	diCollapseThread = task.delay(0.26, diHide)
+local function diCollapseToDot(onDone)
+	-- Phase 1: tween width AND height together to DI_DOT (Quint so it's fast at end)
+	-- This avoids the "line" look because both dimensions arrive at the same time
+	TweenService:Create(DI_Frame,
+		TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+		{Size=UDim2.fromOffset(DI_DOT, DI_DOT)}):Play()
+	-- Phase 2: once it's a circle, pulse outward 4px then snap back (tiny bounce)
+	task.delay(0.25, function()
+		TweenService:Create(DI_Frame,
+			TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{Size=UDim2.fromOffset(DI_DOT + 8, DI_DOT + 8)}):Play()
+		task.delay(0.08, function()
+			TweenService:Create(DI_Frame,
+				TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{Size=UDim2.fromOffset(DI_DOT, DI_DOT)}):Play()
+			if onDone then task.delay(0.15, onDone) end
+		end)
+	end)
 end
 
-local function diExpand(ctrlType, labelText, valueText)
+local function diDismiss()
+	diDismissThread = nil
+	-- A stale dismiss thread scheduled by a previous drag can fire while the
+	-- user is already dragging another slider. Bail out — the active drag
+	-- will schedule its own dismiss on release.
+	if activeDragLabel ~= nil then return end
+	-- Snapshot label so collapse can detect if a new notification opened
+	local dismissingLabel = diCurrentLabel
+	-- Use same animation as manual click: instant content clear then diCollapseToDot
+	diContent.GroupTransparency = 1
+	diClearContent()
+	diCollapseThread = task.delay(0, function()
+		diCollapseThread = nil
+		-- If a new slider drag started, abort.
+		if activeDragLabel ~= nil then
+			diContent.GroupTransparency = 0
+			return
+		end
+		-- If a new *different* notification opened, abort.
+		if diCurrentLabel ~= dismissingLabel then
+			diContent.GroupTransparency = 0
+			return
+		end
+		-- If dismiss was rescheduled, stay open.
+		if diDismissThread ~= nil then
+			diContent.GroupTransparency = 0
+			return
+		end
+		diCollapseToDot(diHide)
+	end)
+end
+
+-- Click: instantly hide contents then collapse to dot
+diHitbox.MouseButton1Click:Connect(function()
+	if activeDragLabel ~= nil then return end
+	if DI_SHOWING then
+		diCancelAll()
+		DI_QUEUE = {}
+		diContent.GroupTransparency = 1
+		diClearContent()
+		diCollapseToDot(diHide)
+	end
+end)
+
+local function diExpand(ctrlType, labelText, valueText, isDragging)
 	local icon   = DI_TYPE_ICON[ctrlType] or "●"
 	local accent = DI_TYPE_COLOR[ctrlType] or T.blue
 	local hasVal = (valueText ~= nil and valueText ~= "")
@@ -817,73 +1399,211 @@ local function diExpand(ctrlType, labelText, valueText)
 	diProgress.Visible = false
 	diProgress.Size = UDim2.fromOffset(0, 3)
 	diAccent.BackgroundColor3 = accent
+	diProgress.BackgroundColor3 = accent
 
 	diCurrentTotalW = totalW
 
 	-- Frame is always visible as a dot — spring open from current dot size
-	DI_Frame.Position = UDim2.new(0.5, 0, 0, 8)
+	DI_Frame.Position = UDim2.new(0.5, 0, 0, DI_Y)  -- midpoint
 	DI_Frame.BackgroundTransparency = 0
-	DI_Frame.Size = UDim2.fromOffset(36, 36)
+	DI_Frame.Size = UDim2.fromOffset(DI_DOT, DI_DOT)
+
+	local isSlider   = (ctrlType == "slider")
+	local expandTime = isSlider and DI_SLIDER_EXPAND_TIME or DI_EXPAND_TIME
+	local holdTime   = isSlider and DI_SLIDER_HOLD_TIME   or DI_HOLD_TIME
+	local textDelay  = expandTime * 0.27  -- reveal text at 27% through expand
 
 	diOpening = true
-	tween(DI_Frame, 0.5, {Size=UDim2.fromOffset(totalW, 36)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-	task.delay(0.5, function() diOpening = false end)
+	tween(DI_Frame, expandTime, {Size=UDim2.fromOffset(totalW, DI_H)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	task.delay(expandTime, function() diOpening = false end)
 
-	task.delay(0.2, function()
+	diExpandTextTask = task.delay(textDelay, function()
+		diExpandTextTask = nil
 		diAccent.Visible = true
 		diIcon.Text     = icon
 		diLabel.Text    = labelText or ""
 		diBadgeLbl.Text = valueText or ""
-		diBadge.Size    = UDim2.fromOffset(badgeW, 22)
+		diBadge.Size    = UDim2.fromOffset(badgeW, 20)
 		diBadge.Visible = (valueText ~= nil and valueText ~= "")
-	end)
-	-- Jiggle after island fully expanded
-	if ctrlType == "slider" then
-		task.delay(0.55, function()
-			local pct    = tonumber(((valueText or "0"):gsub("%%",""))) or 0
-			local innerW = math.max(0, (pct/100) * (totalW - 20))
-			diProgress.BackgroundColor3 = accent
-			diProgress.AnchorPoint = Vector2.new(0, 1)
-			diProgress.Position    = UDim2.new(0, 10, 1, -3)
-			diProgress.Visible     = true
-			local overshoot = math.min(innerW + 18, totalW - 20)
-			tween(diProgress, 0.12, {Size=UDim2.fromOffset(overshoot, 3)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-			task.delay(0.12, function()
-				tween(diProgress, 0.3, {Size=UDim2.fromOffset(innerW, 3)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-			end)
-		end)
-	end
 
-	diDismissThread = task.delay(DI_HOLD_TIME, diDismiss)
+		-- Parse percentage for manual slider notifications so the progress
+		-- bar fills correctly even when opened via Notify(..., "80%", "slider")
+		if ctrlType == "slider" and valueText then
+			local numStr = string.match(valueText, "(%d+)%%")
+			if numStr then
+				local val = math.clamp(tonumber(numStr) / 100, 0, 1)
+				local innerW = math.max(0, val * (totalW - 28))
+				diProgress.Visible = true
+				diProgress.AnchorPoint = Vector2.new(0, 1)
+				diProgress.Position = UDim2.new(0, 14, 1, -4)
+				local thickness = (activeDragLabel ~= nil) and 5 or 3
+				diProgress.Size = UDim2.fromOffset(innerW, thickness)
+			end
+		end
+	end)
+
+	diDismissThread = task.delay(holdTime, diDismiss)
 end
 
-local function diShow(ctrlType, labelText, valueText)
+diShow = function(ctrlType, labelText, valueText, isDragging)
 	diCancelAll()
 	diCurrentLabel = labelText
+	diCurrentType  = ctrlType
+	DI_Frame.BackgroundTransparency = 0
 	if DI_SHOWING then
-		-- Clear content and snap back to dot, then expand fresh
+		-- Interrupt: sliders collapse fast (no dot-pulse), others normal
 		DI_SHOWING = false
-		diOpening = false
-		diAccent.Visible = false
-		diIcon.Text = ""; diLabel.Text = ""; diBadgeLbl.Text = ""
-		diBadge.Visible = false; diProgress.Visible = false
-		tween(DI_Frame, 0.12, {Size=UDim2.fromOffset(36, 36)}, Enum.EasingStyle.Quart)
-		diCollapseThread = task.delay(0.12, function()
-			diCollapseThread = nil
-			DI_SHOWING = true
-			diExpand(ctrlType, labelText, valueText)
+		local isSliderInterrupt = (ctrlType == "slider" or ctrlType == "warning" or ctrlType == "error")
+		local fadeTime = isSliderInterrupt and 0.06 or 0.10
+		TweenService:Create(diContent,
+			TweenInfo.new(fadeTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{GroupTransparency=1}):Play()
+		task.delay(fadeTime, function()
+			diClearContent()
+			diContent.GroupTransparency = 0
+			if isSliderInterrupt then
+				TweenService:Create(DI_Frame,
+					TweenInfo.new(0.12, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+					{Size=UDim2.fromOffset(DI_DOT, DI_DOT)}):Play()
+				task.delay(0.12, function()
+					DI_SHOWING = true
+					diExpand(ctrlType, labelText, valueText, isDragging)
+				end)
+			else
+				diCollapseToDot(function()
+					DI_SHOWING = true
+					diExpand(ctrlType, labelText, valueText, isDragging)
+				end)
+			end
 		end)
 	else
+		-- Fresh open: snap to dot state and expand
+		diContent.GroupTransparency = 0
+		diClearContent()
+		DI_Frame.Size = UDim2.fromOffset(DI_DOT, DI_DOT)
 		DI_SHOWING = true
-		diExpand(ctrlType, labelText, valueText)
+		diExpand(ctrlType, labelText, valueText, isDragging)
 	end
 end
 
+-- Dedicated slider tracking function. Opens the DI for a slider if not already
+-- showing for this label, or live-updates the existing one in place. Completely
+-- bypasses the notify/queue system so drag updates can't be stomped by tweens.
+local function diTrackSlider(label, pct, ctrlType, badgeText, noProg)
+	ctrlType  = ctrlType or "slider"
+	badgeText = badgeText or (math.round(pct*100).."%")
+	local icon   = DI_TYPE_ICON[ctrlType]  or DI_TYPE_ICON["slider"]
+	local accent = DI_TYPE_COLOR[ctrlType] or T.sliderFill
+
+	if (DI_SHOWING or diCurrentLabel ~= nil) and diCurrentLabel == label then
+		-- Live update in place — smooth tween like the original working version.
+		if diExpandJigTask  then task.cancel(diExpandJigTask);  diExpandJigTask  = nil end
+		if diDismissThread  then task.cancel(diDismissThread);  diDismissThread  = nil end
+		if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+		diBadgeLbl.Text = badgeText
+		if not noProg then
+			local innerW = math.max(0, pct * (diCurrentTotalW - 28))
+			diProgress.Visible = true
+			diProgress.AnchorPoint = Vector2.new(0, 1)
+			diProgress.Position = UDim2.new(0, 14, 1, -4)
+			local thickness = (activeDragLabel ~= nil) and 5 or 3
+				diProgress.Size = UDim2.fromOffset(innerW, thickness)
+		end
+		diDismissThread = task.delay(DI_HOLD_TIME, diDismiss)
+	elseif diCurrentLabel ~= label and not diOpening then
+		-- Different (or first) slider — open fresh via normal show path.
+		diShow(ctrlType, label, badgeText)
+	end
+end
+
+local diNotifyCalled = false  -- set true by notify() during a drag tick; slider uses this to auto-downgrade
 local function notify(ctrlType, label, value)
+	diNotifyCalled = true
+	-- If the DI is currently showing a slider and a new notify fires for the SAME slider
+	-- (e.g. the slider callback detects a threshold and calls NotifyWarning mid-drag),
+	-- upgrade the currently-showing DI in place: swap the icon, accent, badge colour,
+	-- and progress bar colour without collapsing/re-expanding.
+	-- Mid-drag upgrade: if a slider DI is already showing and the user's
+	-- callback fires NotifyWarning/NotifyError/Notify(...,"slider"), swap the
+	-- icon/accent/progress colour in place. Match on type, not label, because
+	-- the slider label and the warning label are usually different. This
+	-- prevents diShow's interrupt branch from fading/clearing/re-expanding the
+	-- island on every drag tick (which caused the open/close + blank flicker).
+	-- Mid-drag routing: if a slider is actively being dragged, treat ANY
+	-- incoming notify as an in-place style upgrade of that slider's Dynamic
+	-- Island, regardless of the label the user passed to NotifyWarning /
+	-- NotifyError / Notify. This prevents the "label mismatch tug-of-war"
+	-- where the slider's native tracker and a user-callback notify fight over
+	-- diCurrentLabel and cause the island to spam open/close.
+	if activeDragLabel ~= nil and (DI_SHOWING or diOpening) and diCurrentLabel == activeDragLabel then
+		local icon   = DI_TYPE_ICON[ctrlType] or "●"
+		local accent = DI_TYPE_COLOR[ctrlType] or T.blue
+		diCurrentType = ctrlType
+		diIcon.Text = icon
+		diAccent.BackgroundColor3 = accent
+		diProgress.BackgroundColor3 = accent
+		if value and value ~= "" then
+			diBadgeLbl.Text = value
+			if ctrlType == "slider" then
+				local numStr = string.match(value, "(%d+)%%")
+				if numStr then
+					local pct = math.clamp(tonumber(numStr) / 100, 0, 1)
+					local innerW = math.max(0, pct * (diCurrentTotalW - 28))
+					diProgress.Visible = true
+					diProgress.AnchorPoint = Vector2.new(0, 1)
+					diProgress.Position = UDim2.new(0, 14, 1, -4)
+					local thickness = (activeDragLabel ~= nil) and 5 or 3
+				diProgress.Size = UDim2.fromOffset(innerW, thickness)
+				end
+			end
+		end
+		if diDismissThread  then task.cancel(diDismissThread);  diDismissThread  = nil end
+		diDismissThread = task.delay(DI_HOLD_TIME, diDismiss)
+		return
+	end
+	local isSliderActive = DI_SHOWING and (diCurrentType == "slider" or diCurrentType == "warning" or diCurrentType == "error")
+	local isSliderLike   = (ctrlType == "slider" or ctrlType == "warning" or ctrlType == "error")
+	if DI_SHOWING and ((diCurrentLabel == label and not diOpening) or (isSliderActive and isSliderLike)) then
+		local icon   = DI_TYPE_ICON[ctrlType] or "●"
+		local accent = DI_TYPE_COLOR[ctrlType] or T.blue
+		diCurrentType = ctrlType
+		diIcon.Text = icon
+		diAccent.BackgroundColor3 = accent
+		diProgress.BackgroundColor3 = accent
+		if value and value ~= "" then
+			diBadgeLbl.Text = value
+			if ctrlType == "slider" then
+				local numStr = string.match(value, "(%d+)%%")
+				if numStr then
+					local pct = math.clamp(tonumber(numStr) / 100, 0, 1)
+					local innerW = math.max(0, pct * (diCurrentTotalW - 28))
+					diProgress.Visible = true
+					diProgress.AnchorPoint = Vector2.new(0, 1)
+					diProgress.Position = UDim2.new(0, 14, 1, -4)
+					local thickness = (activeDragLabel ~= nil) and 5 or 3
+				diProgress.Size = UDim2.fromOffset(innerW, thickness)
+				end
+			end
+		end
+		-- Reset the dismiss timer so the upgraded state stays visible
+		if diDismissThread  then task.cancel(diDismissThread);  diDismissThread  = nil end
+		diDismissThread = task.delay(DI_HOLD_TIME, diDismiss)
+		return
+	end
+	-- Fall-through: only rewrite label for slider-type calls so the native
+	-- slider tracker recognises them. Non-slider notifications (toggle, button)
+	-- keep their own label and are queued/shown independently.
+	local isSliderType = (ctrlType == "slider" or ctrlType == "warning" or ctrlType == "error")
+	if activeDragLabel ~= nil and isSliderType then
+		label = activeDragLabel
+	end
 	if DI_SHOWING then
 		if #DI_QUEUE < 3 then
 			table.insert(DI_QUEUE, function() diShow(ctrlType, label, value) end)
 		end
+	elseif diCurrentLabel == label and isSliderType then
+		-- Slider diShow already set diCurrentLabel to this label and is mid-transition;
+		-- calling diShow again would cause a double-expand. Skip.
 	else
 		diShow(ctrlType, label, value)
 	end
@@ -896,8 +1616,18 @@ local LG_tabs       = {}  -- ordered list of tab names
 local LG_tabData    = {}  -- [name] = { iconName, subText, sections=[] }
 local LG_sidebarBtns= {}  -- [name] = {bg, lbl}
 local LG_sbOrder    = 0
-local LG_config     = {}
-local LG_selected   = nil
+local LG_config        = {}
+local LG_selected      = nil
+local LG_scrollMem     = {}   -- remembers ContentScroll position per tab
+-- Forward declarations for theme system (real definitions are further down).
+-- selectPage() is defined before the theme system but needs to reference both.
+local LG_theme         = "glass"
+local applyTheme       = nil
+local ALPHA_WINDOW   = 0.18
+local ALPHA_TITLEBAR = 0.25
+local ALPHA_SIDEBAR  = 0.22
+local ALPHA_OVERLAY  = 0.15
+
 
 -- ============================================================
 -- INTERNAL BUILDERS
@@ -934,13 +1664,13 @@ local function buildToggle(card, label, defaultVal, callback, rowOrder, divOrder
 	local lbl=Instance.new("TextLabel"); lbl.Size=UDim2.new(0.6,0,1,0); lbl.Position=UDim2.fromOffset(16,0)
 	lbl.BackgroundTransparency=1; lbl.Text=label; lbl.Font=Enum.Font.Gotham; lbl.TextSize=14
 	lbl.TextColor3=T.textPrimary; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.ZIndex=16; lbl.Parent=row
-	local tBg=Instance.new("TextButton"); tBg.Size=UDim2.fromOffset(48,27); tBg.AnchorPoint=Vector2.new(1,0.5)
+	local tBg=Instance.new("TextButton"); tBg.Size=UDim2.fromOffset(52,22); tBg.AnchorPoint=Vector2.new(1,0.5)
 	tBg.Position=UDim2.new(1,-16,0.5,0); tBg.BackgroundColor3=val and T.toggleOn or T.toggleOff
 	tBg.BackgroundTransparency=0.1; tBg.AutoButtonColor=false; tBg.BorderSizePixel=0
 	tBg.Text=""; tBg.ZIndex=16; tBg.Parent=row
-	liquidGlass(tBg,{radius=14,sheen=true,strokeT=0.6})
-	local knob=Instance.new("Frame"); knob.Size=UDim2.fromOffset(21,21); knob.BackgroundColor3=Color3.new(1,1,1)
-	knob.Position=val and UDim2.fromOffset(24,3) or UDim2.fromOffset(3,3)
+	liquidGlass(tBg,{radius=11,sheen=true,strokeT=0.6})
+	local knob=Instance.new("Frame"); knob.Size=UDim2.fromOffset(26,16); knob.BackgroundColor3=Color3.new(1,1,1)
+	knob.Position=val and UDim2.fromOffset(23,3) or UDim2.fromOffset(3,3)
 	knob.BorderSizePixel=0; knob.ZIndex=18; knob.Parent=tBg
 	Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
 	local kg=Instance.new("UIGradient"); kg.Rotation=90
@@ -948,18 +1678,108 @@ local function buildToggle(card, label, defaultVal, callback, rowOrder, divOrder
 	local ks=Instance.new("UIStroke"); ks.Color=Color3.fromRGB(180,180,190); ks.Transparency=0.5; ks.Parent=knob
 	-- Keep knob centred vertically so squeeze doesn't shift it
 	knob.AnchorPoint = Vector2.new(0, 0.5)
-	knob.Position    = val and UDim2.new(0,24,0.5,0) or UDim2.new(0,3,0.5,0)
+	knob.Position    = val and UDim2.new(0,23,0.5,0) or UDim2.new(0,3,0.5,0)
 	tBg.AnchorPoint  = Vector2.new(1, 0.5)
-	tBg.MouseButton1Click:Connect(function()
-		val=not val
-		tween(tBg,0.08,{Size=UDim2.fromOffset(44,24)},Enum.EasingStyle.Quad)
-		task.delay(0.08,function()
-			tween(tBg,0.35,{Size=UDim2.fromOffset(48,27)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
-		end)
-		tween(tBg,0.2,{BackgroundColor3=val and T.toggleOn or T.toggleOff})
-		tween(knob,0.4,{Position=val and UDim2.new(0,24,0.5,0) or UDim2.new(0,3,0.5,0)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+
+	-- Drag-to-toggle: track pointer movement across the pill
+	local togDragging  = false
+	local togStartX    = nil
+	local togLastX     = nil
+	local togMoved     = false  -- true once the pointer has moved enough to count as a drag
+	local togKnobTween = nil    -- cancel before each new knob tween to avoid pile-up
+
+	local togMoveConn, togEndConn
+
+	local function snapToggle(newVal)
+		-- Cancel any in-flight drag tween before snapping
+		if togKnobTween then togKnobTween:Cancel(); togKnobTween = nil end
+		val = newVal
+		local targetPos = val and UDim2.new(0,23,0.5,0) or UDim2.new(0,3,0.5,0)
+		tween(tBg, 0.2, {BackgroundColor3 = val and T.toggleOn or T.toggleOff})
+		-- Slide knob cleanly to target; pill squeeze (tBg) provides the jiggle feel
+		tween(knob, 0.22, {Size=UDim2.fromOffset(26,16), Position = targetPos},
+			Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 		if callback then callback(val) end
+	end
+
+	local function startTogDrag(i)
+		if i.UserInputType ~= Enum.UserInputType.MouseButton1 and i.UserInputType ~= Enum.UserInputType.Touch then return end
+		if activeTogDrag then return end  -- another toggle is already being dragged
+		if activeDragLabel ~= nil then return end  -- a slider is being dragged
+		activeTogDrag = true
+		togDragging = true
+		togMoved    = false
+		togStartX   = i.Position.X
+		togLastX    = i.Position.X
+		ContentScroll.ScrollingEnabled = false
+		SBScroll.ScrollingEnabled      = false
+	end
+
+	togMoveConn = UserInputService.InputChanged:Connect(function(i)
+		if not togDragging then return end
+		if i.UserInputType ~= Enum.UserInputType.MouseMovement and i.UserInputType ~= Enum.UserInputType.Touch then return end
+		local dx = i.Position.X - togLastX
+		local totalDx = i.Position.X - togStartX
+		if math.abs(totalDx) > 3 then togMoved = true end
+		-- Drag the knob: clamp its X within the pill
+		local baseX   = val and 23 or 3
+		local rawX    = math.clamp(baseX + totalDx, 3, 23)
+		-- Velocity stretch: widen knob proportional to speed
+		local speed   = math.abs(dx)
+		local targetW = math.clamp(26 + speed * 1.1, 26, 34)
+		-- Clamp left edge so knob right edge (rawX + targetW) stays inside pill (max 49)
+		rawX = math.clamp(rawX, 3, 49 - targetW)
+		if togKnobTween then togKnobTween:Cancel() end
+		togKnobTween = tween(knob, 0.05, {Size=UDim2.fromOffset(targetW, 16), Position=UDim2.new(0, rawX, 0.5, 0)},
+			Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+		-- Live colour: lerp between off/on based on knob position fraction
+		local frac = (rawX - 3) / 20
+		local col  = T.toggleOff:Lerp(T.toggleOn, frac)
+		tBg.BackgroundColor3 = col
+		togLastX = i.Position.X
 	end)
+
+	togEndConn = UserInputService.InputEnded:Connect(function(i)
+		if i.UserInputType ~= Enum.UserInputType.MouseButton1 and i.UserInputType ~= Enum.UserInputType.Touch then return end
+		if not togDragging then return end
+		togDragging = false
+		if not togMoved then
+			-- Pure click: squeeze pill after knob starts moving to avoid fighting direction
+			if activeDropdownClose then activeDropdownClose(); activeDropdown=nil; activeDropdownClose=nil end
+			snapToggle(not val)
+			task.delay(0.04, function()
+				tween(tBg,0.08,{Size=UDim2.fromOffset(48,19)},Enum.EasingStyle.Quad)
+				task.delay(0.08,function()
+					tween(tBg,0.35,{Size=UDim2.fromOffset(52,22)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+				end)
+			end)
+		else
+			-- Drag release: snap to whichever side the knob is closest to
+			local totalDx = i.Position.X - togStartX
+			local baseX   = val and 23 or 3
+			local rawX    = math.clamp(baseX + totalDx, 3, 23)
+			local newVal  = (rawX >= 13)  -- midpoint of 3–23 range
+			snapToggle(newVal)
+			-- Pill squeeze: same jiggle as click
+			tween(tBg,0.08,{Size=UDim2.fromOffset(48,19)},Enum.EasingStyle.Quad)
+			task.delay(0.08,function()
+				tween(tBg,0.35,{Size=UDim2.fromOffset(52,22)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+			end)
+		end
+		togStartX = nil; togLastX = nil; togMoved = false; togKnobTween = nil
+		activeTogDrag = false
+		ContentScroll.ScrollingEnabled = true
+		SBScroll.ScrollingEnabled      = true
+	end)
+
+	row.AncestryChanged:Connect(function()
+		if not row.Parent then
+			togMoveConn:Disconnect()
+			togEndConn:Disconnect()
+		end
+	end)
+
+	tBg.InputBegan:Connect(startTogDrag)
 	if divOrder then addDivider(card,divOrder) end
 	-- control handle
 	return {
@@ -967,13 +1787,13 @@ local function buildToggle(card, label, defaultVal, callback, rowOrder, divOrder
 		SetValue=function(_,v)
 			val=v
 			tBg.BackgroundColor3=val and T.toggleOn or T.toggleOff
-			knob.Position=val and UDim2.new(0,24,0.5,0) or UDim2.new(0,3,0.5,0)
+			knob.Position=val and UDim2.new(0,23,0.5,0) or UDim2.new(0,3,0.5,0)
 		end
 	}
 end
 
 -- ── Slider ──────────────────────────────────────────────────
-local function buildSlider(card, label, defaultVal, callback, rowOrder, divOrder)
+local function buildSlider(card, label, defaultVal, callback, hasUserCb, rowOrder, divOrder)
 	local val = math.clamp(defaultVal or 0.5, 0, 1)
 	local row=Instance.new("Frame"); row.Size=UDim2.new(1,0,0,56); row.BackgroundTransparency=1
 	row.BorderSizePixel=0; row.LayoutOrder=rowOrder; row.ZIndex=15; row.Parent=card
@@ -992,7 +1812,7 @@ local function buildSlider(card, label, defaultVal, callback, rowOrder, divOrder
 	local fill=Instance.new("Frame"); fill.Size=UDim2.fromScale(val,1); fill.BackgroundColor3=T.sliderFill
 	fill.BorderSizePixel=0; fill.ZIndex=17; fill.Parent=track
 	Instance.new("UICorner",fill).CornerRadius=UDim.new(1,0)
-	local fg=Instance.new("UIGradient"); fg.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(80,180,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,100,230))}); fg.Parent=fill
+	local fg=Instance.new("UIGradient"); fg.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(64,148,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,88,210))}); fg.Parent=fill
 	local knob=Instance.new("Frame"); knob.Size=UDim2.fromOffset(17,17); knob.AnchorPoint=Vector2.new(0.5,0.5)
 	knob.Position=UDim2.new(val,0,0.5,0); knob.BackgroundColor3=Color3.new(1,1,1)
 	knob.BorderSizePixel=0; knob.ZIndex=18; knob.Parent=track
@@ -1000,32 +1820,82 @@ local function buildSlider(card, label, defaultVal, callback, rowOrder, divOrder
 	local kg=Instance.new("UIGradient"); kg.Rotation=90
 	kg.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(220,220,228))}); kg.Parent=knob
 	local ks=Instance.new("UIStroke"); ks.Color=Color3.fromRGB(160,160,170); ks.Transparency=0.4; ks.Thickness=1; ks.Parent=knob
-	local dragging=false
-
-	-- Start drag from anywhere on the track OR the knob
+	local dragging = false
 	local function startDrag(i)
 		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-			dragging=true
-			-- Lock all scrolling so drag doesn't scroll the page
+			if dragging then return end
+			-- Don't allow a new slider to start dragging if another slider
+			-- already has the Dynamic Island. Prevents cross-slider DI chaos.
+			-- Also block if a toggle is being dragged.
+			if activeDragLabel ~= nil and activeDragLabel ~= label then return end
+			if activeTogDrag then return end
+			if activeDropdownClose then activeDropdownClose(); activeDropdown=nil; activeDropdownClose=nil end
+			dragging = true
+			activeDragLabel = label
 			ContentScroll.ScrollingEnabled = false
 			SBScroll.ScrollingEnabled      = false
-			-- Snap value immediately to click position on track
+			-- Knob grow: multi-bounce chain for a jiggly expand
+			tween(knob,0.10,{Size=UDim2.fromOffset(26,26)},Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+			task.delay(0.10,function()
+				tween(knob,0.09,{Size=UDim2.fromOffset(20,20)},Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+				task.delay(0.09,function()
+					tween(knob,0.08,{Size=UDim2.fromOffset(24,24)},Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+					task.delay(0.08,function()
+						tween(knob,0.07,{Size=UDim2.fromOffset(22,22)},Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+					end)
+				end)
+			end)
 			local tp=track.AbsolutePosition; local ts2=track.AbsoluteSize
 			val=math.clamp((i.Position.X-tp.X)/ts2.X,0,1)
 			fill.Size=UDim2.fromScale(val,1); knob.Position=UDim2.new(val,0,0.5,0)
 			valLbl.Text=math.round(val*100).."%"
-			if callback then callback(val) end
+			-- Paint the Dynamic Island progress bar for click-to-set (no drag).
+			-- Without this, clicking a slider opens the DI but the bar is empty
+			-- because only the move handler populates diProgress.
+			if callback then
+				if (DI_SHOWING or diCurrentLabel ~= nil) and diCurrentLabel == label then
+					diBadgeLbl.Text = math.round(val*100).."%"
+					local innerW = math.max(0, val * (diCurrentTotalW - 28))
+					diProgress.Visible = true
+					diProgress.AnchorPoint = Vector2.new(0, 1)
+					diProgress.Position = UDim2.new(0, 14, 1, -4)
+					local thickness = (activeDragLabel ~= nil) and 5 or 3
+				diProgress.Size = UDim2.fromOffset(innerW, thickness)
+					if diDismissThread  then task.cancel(diDismissThread);  diDismissThread  = nil end
+					if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+					diDismissThread = task.delay(DI_HOLD_TIME, diDismiss)
+				elseif DI_SHOWING and diCurrentLabel ~= label and hasUserCb then
+					-- A different notification is open (or opening): take it over for this slider.
+					-- Skip callback here — move handler fires next frame with clean state.
+					if not diOpening then
+						diShow("slider", label, math.round(val*100).."%")
+					else
+						-- Still opening: clear queue and set label so move handler takes over
+						DI_QUEUE = {}
+						diCurrentLabel = label
+					end
+					return
+				elseif not DI_SHOWING and hasUserCb then
+					-- Island is closed and user opted in — open with this slider's
+					-- label so diCurrentLabel is set before the callback fires.
+					diShow("slider", label, math.round(val*100).."%")
+				end
+				diNotifyCalled = false
+				callback(val)
+				if not diNotifyCalled and DI_SHOWING and diCurrentType ~= "slider" then
+					diCurrentType = "slider"
+					diIcon.Text   = DI_TYPE_ICON["slider"] or "≡"
+					diAccent.BackgroundColor3   = DI_TYPE_COLOR["slider"] or T.sliderFill
+					diProgress.BackgroundColor3 = DI_TYPE_COLOR["slider"] or T.sliderFill
+				end
+			end
 		end
 	end
 	track.InputBegan:Connect(startDrag)
 	knob.InputBegan:Connect(startDrag)
 
-	-- Use a scoped connection stored in a variable so we can manage it cleanly
 	local moveConn, endConn
-
-	-- Throttle: only update DI every N seconds while dragging
-	local DI_THROTTLE  = 0
-	local lastDIUpdate = 0
+	local lastX = nil  -- for velocity-based knob stretch
 
 	moveConn = UserInputService.InputChanged:Connect(function(i)
 		if not dragging then return end
@@ -1034,58 +1904,79 @@ local function buildSlider(card, label, defaultVal, callback, rowOrder, divOrder
 		val=math.clamp((i.Position.X-tp.X)/ts2.X,0,1)
 		fill.Size=UDim2.fromScale(val,1); knob.Position=UDim2.new(val,0,0.5,0)
 		valLbl.Text=math.round(val*100).."%"
-		if callback then callback(val) end
-		-- Live update the Dynamic Island while dragging (throttled)
-		if not callback then return end  -- only live-update if user passed a callback (opted in)
-		local now = tick()
-		if now - lastDIUpdate >= DI_THROTTLE then
-			lastDIUpdate = now
+		-- Velocity stretch: widen knob proportional to how fast the mouse is moving
+		local curX = i.Position.X
+		if lastX then
+			local dx = math.abs(curX - lastX)
+			-- dx is pixels/frame; map 0→22px wide, 8+→32px wide, clamped
+			local targetW = math.clamp(22 + dx * 1.4, 22, 34)
+			tween(knob, 0.06, {Size=UDim2.fromOffset(targetW, 22)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		end
+		lastX = curX
+		-- Update the Dynamic Island FIRST, before firing the user callback.
+		-- If we fire callback first and it calls NotifyWarning, diCurrentLabel
+		-- gets overwritten and the label check below falls through to diShow,
+		-- which re-opens the island every drag tick (blank + flicker bug).
+		if callback then
 			if (DI_SHOWING or diCurrentLabel ~= nil) and diCurrentLabel == label then
-				-- Same slider — update text and progress bar in place, reset timer
 				diBadgeLbl.Text = math.round(val*100).."%"
-				local pct = val
-				local innerW = math.max(0, pct * (diCurrentTotalW - 20))
+				local innerW = math.max(0, val * (diCurrentTotalW - 28))
 				diProgress.Visible = true
-				-- Smooth linear track while dragging — jiggle happens on release
-				tween(diProgress, 0.08, {Size=UDim2.fromOffset(innerW, 3)}, Enum.EasingStyle.Linear)
+				diProgress.AnchorPoint = Vector2.new(0, 1)
+				diProgress.Position = UDim2.new(0, 14, 1, -4)
+				diProgress.Size = UDim2.fromOffset(innerW, 5)
 				if diDismissThread  then task.cancel(diDismissThread);  diDismissThread  = nil end
 				if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
 				diDismissThread = task.delay(DI_HOLD_TIME, diDismiss)
-			else
-				-- Different slider — only trigger if not already opening/showing this label
-				if diCurrentLabel ~= label and not diOpening then
-					diShow("slider", label, math.round(val*100).."%")
-				end
+			end
+		end
+		if callback then
+			diNotifyCalled = false
+			callback(val)
+			-- Auto-downgrade: if the user's callback didn't call notify() this
+			-- tick (e.g. a conditional NotifyWarning whose condition became
+			-- false), reset the DI styling to slider defaults so it doesn't
+			-- stay stuck in the previous upgraded state.
+			if not diNotifyCalled and DI_SHOWING and diCurrentType ~= "slider" then
+				diCurrentType = "slider"
+				diIcon.Text   = DI_TYPE_ICON["slider"] or "≡"
+				diAccent.BackgroundColor3   = DI_TYPE_COLOR["slider"] or T.sliderFill
+				diProgress.BackgroundColor3 = DI_TYPE_COLOR["slider"] or T.sliderFill
 			end
 		end
 	end)
 
 	endConn = UserInputService.InputEnded:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-			if dragging then
-				-- Re-enable scrolling
-				ContentScroll.ScrollingEnabled = true
-				SBScroll.ScrollingEnabled      = true
-				if callback then
-					DI_QUEUE = {}
-					if DI_SHOWING then
-						-- Island already open — fire jiggle once on release then hold
-						if diDismissThread  then task.cancel(diDismissThread);  diDismissThread  = nil end
-						if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
-						local innerW = math.max(0, val * (diCurrentTotalW - 20))
-						local overshoot = math.min(innerW + 18, diCurrentTotalW - 20)
-						tween(diProgress, 0.12, {Size=UDim2.fromOffset(overshoot, 3)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-						task.delay(0.12, function()
-							tween(diProgress, 0.3, {Size=UDim2.fromOffset(innerW, 3)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-						end)
-						diDismissThread = task.delay(DI_HOLD_TIME, diDismiss)
-					else
-						-- Island not open (e.g. very quick tap) — show it once
-						notify("slider", label, math.round(val*100).."%")
-					end
-				end
+		if i.UserInputType~=Enum.UserInputType.MouseButton1 and i.UserInputType~=Enum.UserInputType.Touch then return end
+		if not dragging then return end
+		dragging = false
+		activeDragLabel = nil
+		lastX = nil  -- reset velocity tracker
+		ContentScroll.ScrollingEnabled = true
+		SBScroll.ScrollingEnabled      = true
+		-- Knob shrink: overshoot down then spring back to rest (jiggly collapse)
+		tween(knob,0.08,{Size=UDim2.fromOffset(14,14)},Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+		task.delay(0.08,function()
+			tween(knob,0.35,{Size=UDim2.fromOffset(17,17)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+		end)
+		if callback then
+			DI_QUEUE = {}
+			if DI_SHOWING and diCurrentLabel == label then
+				if diDismissThread  then task.cancel(diDismissThread);  diDismissThread  = nil end
+				if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+				-- Deliberately DO NOT reset diCurrentType here. If the callback
+				-- upgraded the island to warning/error and the value is still
+				-- above threshold, we want the warning styling to persist after
+				-- release. The next drag on any slider will route through
+				-- notify() (via activeDragLabel) and restyle correctly.
+				local innerW = math.max(0, val * (diCurrentTotalW - 28))
+				local overshoot = math.min(innerW + 18, diCurrentTotalW - 28)
+				tween(diProgress, 0.12, {Size=UDim2.fromOffset(overshoot, 3)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+				task.delay(0.12, function()
+					tween(diProgress, 0.3, {Size=UDim2.fromOffset(innerW, 3)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+				end)
+				diDismissThread = task.delay(DI_HOLD_TIME, diDismiss)
 			end
-			dragging=false
 		end
 	end)
 
@@ -1104,6 +1995,21 @@ local function buildSlider(card, label, defaultVal, callback, rowOrder, divOrder
 			fill.Size=UDim2.fromScale(val,1); knob.Position=UDim2.new(val,0,0.5,0)
 			valLbl.Text=math.round(val*100).."%"
 		end
+	}
+end
+
+-- ── Label (text-only row) ───────────────────────────────────
+local function buildLabel(card, text, rowOrder, divOrder)
+	local row=Instance.new("Frame"); row.Size=UDim2.new(1,0,0,36); row.BackgroundTransparency=1
+	row.BorderSizePixel=0; row.LayoutOrder=rowOrder; row.ZIndex=15; row.Parent=card
+	local lbl=Instance.new("TextLabel"); lbl.Size=UDim2.new(1,-32,1,0); lbl.Position=UDim2.fromOffset(16,0)
+	lbl.BackgroundTransparency=1; lbl.Text=tostring(text); lbl.Font=Enum.Font.Gotham; lbl.TextSize=13
+	lbl.TextColor3=T.textSecond; lbl.TextXAlignment=Enum.TextXAlignment.Left
+	lbl.TextWrapped=true; lbl.ZIndex=16; lbl.Parent=row
+	if divOrder then addDivider(card,divOrder) end
+	return {
+		GetValue=function() return lbl.Text end,
+		SetValue=function(_,v) lbl.Text=tostring(v) end
 	}
 end
 
@@ -1129,8 +2035,6 @@ local function buildInfo(card, label, value, rowOrder, divOrder)
 end
 
 -- ── Dropdown ────────────────────────────────────────────────
-local activeDropdown = nil  -- only one open at a time
-
 local function buildDropdown(card, label, options, defaultIndex, callback, rowOrder, divOrder)
 	local selectedIdx = math.clamp(defaultIndex or 1, 1, #options)
 	local open = false
@@ -1152,7 +2056,7 @@ local function buildDropdown(card, label, options, defaultIndex, callback, rowOr
 	pillLbl.TextSize=13; pillLbl.TextColor3=T.textPrimary; pillLbl.TextXAlignment=Enum.TextXAlignment.Left
 	pillLbl.ZIndex=17; pillLbl.Parent=pill
 	local chevron=Instance.new("TextLabel"); chevron.Size=UDim2.fromOffset(20,28); chevron.AnchorPoint=Vector2.new(1,0.5)
-	chevron.Position=UDim2.new(1,-4,0.5,0); chevron.BackgroundTransparency=1; chevron.Text="⌄"
+	chevron.Position=UDim2.new(1,-4,0.5,0); chevron.BackgroundTransparency=1; chevron.Text="v"
 	chevron.Font=Enum.Font.GothamBold; chevron.TextSize=12; chevron.TextColor3=T.textSecond; chevron.ZIndex=17; chevron.Parent=pill
 
 	-- Dropdown panel (floats in ScreenGui, solid dark — same style as search results)
@@ -1164,12 +2068,14 @@ local function buildDropdown(card, label, options, defaultIndex, callback, rowOr
 	local panelStroke=Instance.new("UIStroke"); panelStroke.Color=Color3.fromRGB(255,255,255)
 	panelStroke.Transparency=0.78; panelStroke.Thickness=1
 	panelStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; panelStroke.Parent=panel
-	local panelList=Instance.new("Frame"); panelList.Size=UDim2.fromScale(1,0); panelList.AutomaticSize=Enum.AutomaticSize.Y
+	local panelList=Instance.new("CanvasGroup"); panelList.Size=UDim2.fromScale(1,0); panelList.AutomaticSize=Enum.AutomaticSize.Y
 	panelList.BackgroundTransparency=1; panelList.ZIndex=51; panelList.Parent=panel
 	local pll=Instance.new("UIListLayout"); pll.Padding=UDim.new(0,0); pll.SortOrder=Enum.SortOrder.LayoutOrder; pll.Parent=panelList
 	local plp=Instance.new("UIPadding"); plp.PaddingTop=UDim.new(0,4); plp.PaddingBottom=UDim.new(0,4); plp.Parent=panelList
 
+	local targetH = #options*34+8  -- full expanded height, used by close animation
 	local optionBtns={}
+	local closePanel  -- forward decl so option-click handlers can call it
 	for i,opt in ipairs(options) do
 		local ob=Instance.new("TextButton"); ob.Size=UDim2.new(1,0,0,34)
 		ob.BackgroundColor3=T.dropdownHov; ob.BackgroundTransparency=1
@@ -1195,58 +2101,113 @@ local function buildDropdown(card, label, options, defaultIndex, callback, rowOr
 			end
 			selectedIdx=i; pillLbl.Text=opt
 			ol.TextColor3=T.textPrimary; checkLbl.Text="✓"
-			if callback then callback(selectedIdx, opt) end
-			-- close
-			open=false; tween(panel,0.15,{BackgroundTransparency=1}); task.delay(0.15,function() panel.Visible=false end)
-			activeDropdown=nil
+			-- Close FIRST so that even if the user callback errors, the panel
+			-- still closes cleanly. Wrap callback in pcall for the same reason.
+			closePanel()
+			if callback then
+				local ok, err = pcall(callback, selectedIdx, opt)
+				if not ok then warn("[LiquidGlass] dropdown callback error: "..tostring(err)) end
+			end
 		end)
 	end
 
 	local function positionPanel()
+		local s = uiScale.Scale
 		local abs=pill.AbsolutePosition; local sz=pill.AbsoluteSize
-		local itemH=34; local padV=8
-		local totalH=itemH*#options+padV
-		panel.Size=UDim2.fromOffset(math.max(sz.X,160),totalH)
-		-- try to open below, fallback above if near bottom of screen
-		local vp=workspace.CurrentCamera.ViewportSize
-		if abs.Y+sz.Y+totalH+8 < vp.Y then
-			panel.Position=UDim2.fromOffset(abs.X+sz.X-panel.Size.X.Offset, abs.Y+sz.Y+4)
+		-- abs/sz are screen-pixels; panel.Size is logical units. Divide.
+		panel.Size=UDim2.fromOffset(math.max(sz.X/s,160),targetH)
+		local inset=GuiService:GetGuiInset()
+		local px=math.max(4, abs.X/s)
+		-- targetH is logical; convert to screen pixels when comparing vs screen-space winBottom.
+		local winBottom = Window.AbsolutePosition.Y + Window.AbsoluteSize.Y
+		if abs.Y+sz.Y+(targetH*s)+8 <= winBottom then
+			panel.Position=UDim2.fromOffset(px, (abs.Y+sz.Y+inset.Y)/s + 4)
 		else
-			panel.Position=UDim2.fromOffset(abs.X+sz.X-panel.Size.X.Offset, abs.Y-totalH-4)
+			panel.Position=UDim2.fromOffset(px, (abs.Y+inset.Y)/s - targetH - 4)
 		end
 	end
 
-	-- Reposition the panel whenever the content area scrolls
-	ContentScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-		if open then positionPanel() end
-	end)
+	-- Reposition the panel whenever the pill actually moves on screen (scroll,
+	-- tab switch, window resize). Tracking AbsolutePosition directly is more
+	-- robust than hooking ContentScroll.CanvasPosition since it catches every
+	-- case including layout changes. Only reposition (not resize) while open
+	-- so we don't fight the open/close animations.
+		local function repositionOnly()
+		if not panel.Visible then return end
+		local s = uiScale.Scale
+		local abs=pill.AbsolutePosition; local sz=pill.AbsoluteSize
+		local panelH = panel.Size.Y.Offset  -- already logical units
+		local inset=GuiService:GetGuiInset()
+		local px=math.max(4, abs.X/s)
+		local winBottom = Window.AbsolutePosition.Y + Window.AbsoluteSize.Y
+		if abs.Y+sz.Y+(panelH*s)+8 <= winBottom then
+			panel.Position=UDim2.fromOffset(px, (abs.Y+sz.Y+inset.Y)/s + 4)
+		else
+			panel.Position=UDim2.fromOffset(px, (abs.Y+inset.Y)/s - panelH - 4)
+		end
+	end
+	pill:GetPropertyChangedSignal("AbsolutePosition"):Connect(repositionOnly)
 
 	pill.MouseEnter:Connect(function() tween(pill,0.08,{BackgroundColor3=T.btnHov,BackgroundTransparency=0.1}) end)
 	pill.MouseLeave:Connect(function() tween(pill,0.08,{BackgroundColor3=T.btnBg,BackgroundTransparency=0.15}) end)
 
 	local function openPanel()
+		if LG_activeColorPickerClose then LG_activeColorPickerClose() end
+		open=true
+		scrollAnchorY = ContentScroll.CanvasPosition.Y
 		positionPanel()
 		panel.BackgroundTransparency=1
 		panel.Size=UDim2.fromOffset(panel.Size.X.Offset, 0)
 		panel.Visible=true
-		tween(panel,0.2,{BackgroundTransparency=0,Size=UDim2.fromOffset(panel.Size.X.Offset,#options*34+8)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+		tween(panel,0.2,{BackgroundTransparency=0,Size=UDim2.fromOffset(panel.Size.X.Offset,targetH)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
 		activeDropdown=panel
+		activeDropdownClose=closePanel
 	end
 
-	local function closePanel()
+	closePanel = function()
 		open=false
-		tween(panel,0.08,{Size=UDim2.fromOffset(panel.Size.X.Offset, math.max(0,panel.Size.Y.Offset-6))},Enum.EasingStyle.Quad)
-		task.delay(0.06,function()
-			tween(panel,0.25,{Size=UDim2.fromOffset(panel.Size.X.Offset,0),BackgroundTransparency=1},Enum.EasingStyle.Back,Enum.EasingDirection.In)
-			task.delay(0.25,function() panel.Visible=false; panel.BackgroundTransparency=0 end)
-		end)
 		activeDropdown=nil
+		activeDropdownClose=nil
+		if LG_closePanelsInstant then
+			panel.Visible=false
+			panel.BackgroundTransparency=0
+			panel.Size=UDim2.fromOffset(panel.Size.X.Offset, targetH)
+			local panelList2i = panel:FindFirstChildWhichIsA("CanvasGroup")
+			if panelList2i then panelList2i.GroupTransparency=0 end
+			return
+		end
+		local panelList2 = panel:FindFirstChildWhichIsA("CanvasGroup")
+		local curW = panel.Size.X.Offset
+		-- Fade content, then collapse like the color picker (Back/In)
+		if panelList2 then
+			tween(panelList2, 0.10, {GroupTransparency=1}, Enum.EasingStyle.Quad)
+		end
+		tween(panel, 0.10, {BackgroundTransparency=1})
+		TweenService:Create(panel,
+			TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+			{Size=UDim2.fromOffset(curW, 0)}):Play()
+		task.delay(0.27, function()
+			panel.Visible=false
+			panel.BackgroundTransparency=0
+			panel.Size=UDim2.fromOffset(curW, targetH)
+			if panelList2 then panelList2.GroupTransparency=0 end
+		end)
 	end
 
 	pill.MouseButton1Click:Connect(function()
-		-- close other dropdown if open
+		-- close other dropdown if open — call its stored closer, then wait for
+		-- its collapse animation to finish before opening this one
 		if activeDropdown and activeDropdown~=panel then
-			activeDropdown.Visible=false; activeDropdown=nil
+			if activeDropdownClose then activeDropdownClose() end
+			activeDropdown=nil
+			activeDropdownClose=nil
+			-- close animation is 0.09s overshoot + 0.22s collapse = ~0.31s total
+			-- wait just long enough for the collapse to complete before opening
+			task.delay(0.31, function()
+				open = true
+				openPanel()
+			end)
+			return
 		end
 		open=not open
 		if open then openPanel() else closePanel() end
@@ -1288,30 +2249,706 @@ local function buildButton(card, label, btnText, callback, rowOrder, divOrder)
 	local lbl=Instance.new("TextLabel"); lbl.Size=UDim2.new(0.55,0,1,0); lbl.Position=UDim2.fromOffset(16,0)
 	lbl.BackgroundTransparency=1; lbl.Text=label; lbl.Font=Enum.Font.Gotham; lbl.TextSize=14
 	lbl.TextColor3=T.textPrimary; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.ZIndex=16; lbl.Parent=row
-	local btn=Instance.new("TextButton"); btn.Size=UDim2.fromOffset(100,28)
-	btn.AnchorPoint=Vector2.new(0.5,0.5); btn.Position=UDim2.new(1,-66,0.5,0)
-	btn.BackgroundColor3=T.blue; btn.BackgroundTransparency=0.1; btn.BorderSizePixel=0
-	btn.AutoButtonColor=false; btn.Text=btnText; btn.Font=Enum.Font.GothamSemibold
+	local btn=Instance.new("TextButton"); btn.Size=UDim2.fromOffset(110,30)
+	btn.AnchorPoint=Vector2.new(0.5,0.5); btn.Position=UDim2.new(1,-71,0.5,0)
+	btn.BackgroundColor3=Color3.fromRGB(255,255,255); btn.BackgroundTransparency=0.82; btn.BorderSizePixel=0
+	btn.AutoButtonColor=false; btn.Text=btnText; btn.Font=Enum.Font.GothamMedium
 	btn.TextSize=13; btn.TextColor3=T.textPrimary; btn.ZIndex=16; btn.Parent=row
-	liquidGlass(btn,{radius=8,sheen=true,strokeT=0.55})
-	btn.MouseEnter:Connect(function() tween(btn,0.08,{BackgroundTransparency=0}) end)
-	btn.MouseLeave:Connect(function() tween(btn,0.08,{BackgroundTransparency=0.1}) end)
+	liquidGlass(btn,{radius=10,sheen=true,strokeT=0.75})
+	btn.MouseEnter:Connect(function() tween(btn,0.10,{BackgroundTransparency=0.72}) end)
+	btn.MouseLeave:Connect(function() tween(btn,0.10,{BackgroundTransparency=0.82}) end)
 	btn.MouseButton1Click:Connect(function()
+		if activeDropdownClose then activeDropdownClose(); activeDropdown=nil; activeDropdownClose=nil end
 		-- Subtle press-down then spring back from anchor point
-		tween(btn,0.07,{Size=UDim2.fromOffset(96,25)},Enum.EasingStyle.Quad)
+		tween(btn,0.07,{Size=UDim2.fromOffset(106,27)},Enum.EasingStyle.Quad)
 		task.delay(0.07,function()
-			tween(btn,0.3,{Size=UDim2.fromOffset(100,28)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
+			tween(btn,0.3,{Size=UDim2.fromOffset(110,30)},Enum.EasingStyle.Back,Enum.EasingDirection.Out)
 		end)
-		tween(btn,0.08,{BackgroundColor3=T.blue:Lerp(Color3.new(1,1,1),0.2)})
-		task.delay(0.15,function() tween(btn,0.2,{BackgroundColor3=T.blue}) end)
+		-- Brightness pulse — briefly lift opacity then settle back
+		tween(btn,0.08,{BackgroundTransparency=0.60})
+		task.delay(0.15,function() tween(btn,0.2,{BackgroundTransparency=0.82}) end)
 		if callback then callback() end
 	end)
 	if divOrder then addDivider(card,divOrder) end
 	return {}
 end
 
--- ============================================================
--- SIDEBAR ROW BUILDER (internal)
+-- ── Color Picker ─────────────────────────────────────────────
+-- Row with a "Choose Color" button (circle indicator + label).
+-- Opens a floating panel: hue bar, saturation bar, brightness bar.
+-- All panel children use Scale positions so they expand with the
+-- spring animation instead of clipping from the top-left corner.
+local function buildColorPicker(card, label, defaultColor, callback, rowOrder, divOrder)
+	local currentH, currentS, currentV = 0, 1, 1
+	local currentA = 1  
+
+	local function colorToHSV(c)
+		local r,g,b = c.R, c.G, c.B
+		local maxC = math.max(r,g,b)
+		local minC = math.min(r,g,b)
+		local delta = maxC - minC
+		local h,s,v = 0, 0, maxC
+		if maxC > 0 then s = delta/maxC end
+		if delta > 0 then
+			if maxC == r then h = (g-b)/delta % 6
+			elseif maxC == g then h = (b-r)/delta + 2
+			else h = (r-g)/delta + 4 end
+			h = h/6
+		end
+		return h, s, v
+	end
+
+	local function hsvToColor(h,s,v)
+		local i = math.floor(h*6)
+		local f = h*6 - i
+		local p,q,t = v*(1-s), v*(1-f*s), v*(1-(1-f)*s)
+		i = i % 6
+		if i==0 then return Color3.new(v,t,p)
+		elseif i==1 then return Color3.new(q,v,p)
+		elseif i==2 then return Color3.new(p,v,t)
+		elseif i==3 then return Color3.new(p,q,v)
+		elseif i==4 then return Color3.new(t,p,v)
+		else return Color3.new(v,p,q) end
+	end
+
+	local initCol = defaultColor or Color3.fromRGB(1, 109, 238)
+	currentH, currentS, currentV = colorToHSV(initCol)
+
+	local function currentColor() return hsvToColor(currentH, currentS, currentV) end
+
+	local function toHex(c)
+		return string.format("#%02X%02X%02X",
+			math.round(c.R*255), math.round(c.G*255), math.round(c.B*255))
+	end
+
+	-- ── Row ───────────────────────────────────────────────────
+	local row = Instance.new("Frame")
+	row.Size=UDim2.new(1,0,0,44); row.BackgroundTransparency=1
+	row.BorderSizePixel=0; row.LayoutOrder=rowOrder; row.ZIndex=15; row.Parent=card
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size=UDim2.new(0.5,0,1,0); lbl.Position=UDim2.fromOffset(16,0)
+	lbl.BackgroundTransparency=1; lbl.Text=label; lbl.Font=Enum.Font.Gotham; lbl.TextSize=14
+	lbl.TextColor3=T.textPrimary; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.ZIndex=16; lbl.Parent=row
+
+	local chooseBtn = Instance.new("TextButton")
+	chooseBtn.Size=UDim2.fromOffset(130,28); chooseBtn.AnchorPoint=Vector2.new(1,0.5)
+	chooseBtn.Position=UDim2.new(1,-16,0.5,0)
+	chooseBtn.BackgroundColor3=T.btnBg; chooseBtn.BackgroundTransparency=0.1
+	chooseBtn.BorderSizePixel=0; chooseBtn.AutoButtonColor=false
+	chooseBtn.Text=""; chooseBtn.ZIndex=16; chooseBtn.Parent=row
+	Instance.new("UICorner",chooseBtn).CornerRadius=UDim.new(0,9)
+	liquidGlass(chooseBtn,{radius=9,sheen=false,strokeT=0.65})
+
+	local colorDot = Instance.new("Frame")
+	colorDot.Size=UDim2.fromOffset(16,16); colorDot.AnchorPoint=Vector2.new(0,0.5)
+	colorDot.Position=UDim2.new(0,8,0.5,0)
+	colorDot.BackgroundColor3=currentColor(); colorDot.BorderSizePixel=0
+	colorDot.ZIndex=17; colorDot.Parent=chooseBtn
+	Instance.new("UICorner",colorDot).CornerRadius=UDim.new(1,0)
+	local dotStroke=Instance.new("UIStroke"); dotStroke.Color=Color3.fromRGB(255,255,255)
+	dotStroke.Transparency=0.6; dotStroke.Thickness=1
+	dotStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; dotStroke.Parent=colorDot
+
+	local chooseLbl = Instance.new("TextLabel")
+	chooseLbl.Size=UDim2.new(1,-32,1,0); chooseLbl.Position=UDim2.fromOffset(30,0)
+	chooseLbl.BackgroundTransparency=1; chooseLbl.Text="Choose Color"
+	chooseLbl.Font=Enum.Font.GothamSemibold; chooseLbl.TextSize=12
+	chooseLbl.TextColor3=T.textPrimary; chooseLbl.TextXAlignment=Enum.TextXAlignment.Left
+	chooseLbl.ZIndex=17; chooseLbl.Parent=chooseBtn
+
+	-- ── Floating panel ────────────────────────────────────────
+	local PAD     = 14
+	local PANEL_W = 270
+	local BAR_W   = PANEL_W - PAD*2
+	local BAR_H   = 22
+	local HUE_Y   = PAD
+	local SAT_Y   = HUE_Y + BAR_H + 10
+	local VAL_Y   = SAT_Y + BAR_H + 10
+	local BTN_Y   = VAL_Y + BAR_H + 12
+	local BTN_H2  = 32
+	local PANEL_H = BTN_Y + BTN_H2 + PAD
+
+	local hueScaleY  = HUE_Y  / PANEL_H
+	local satScaleY  = SAT_Y  / PANEL_H
+	local valScaleY  = VAL_Y  / PANEL_H
+	local btnScaleY  = BTN_Y  / PANEL_H
+	local barScaleW  = BAR_W  / PANEL_W
+	local barScaleH  = BAR_H  / PANEL_H
+	local padScaleX  = PAD    / PANEL_W
+	local btnScaleH  = BTN_H2 / PANEL_H
+	local KNOB_R     = 8
+	local function knobPos(t)
+		return math.clamp(t, KNOB_R/BAR_W, 1 - KNOB_R/BAR_W)
+	end
+
+	local panel = Instance.new("CanvasGroup")
+	panel.Name="ColorPanel"; panel.Visible=false; panel.GroupTransparency=0
+	panel.AnchorPoint=Vector2.new(0.5,0.5)
+	panel.Size=UDim2.fromOffset(PANEL_W, PANEL_H)
+	panel.BackgroundColor3=Color3.fromRGB(30, 30, 36)
+	panel.BackgroundTransparency=0; panel.BorderSizePixel=0
+	panel.ZIndex=195; panel.ClipsDescendants=true; panel.Parent=ScreenGui
+
+	local function applyPanelTheme()
+		for _,c in ipairs(panel:GetChildren()) do
+			if c:IsA("UICorner") or c:IsA("UIStroke") or c:IsA("UIGradient") or (c:IsA("Frame") and c.Name=="Sheen") then
+				c:Destroy()
+			end
+		end
+		if LG_theme == "solid" then
+			panel.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+			panel.BackgroundTransparency = 0
+			local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,14); c.Parent=panel
+			local s=Instance.new("UIStroke"); s.Color=Color3.fromRGB(255,255,255)
+			s.Transparency=0.82; s.Thickness=1; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=panel
+		else
+			panel.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+			liquidGlass(panel, {radius=14, sheen=true, strokeT=0.35})
+			local grad = panel:FindFirstChildWhichIsA("UIGradient")
+			if grad then
+				grad.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0.00, 0.08),
+					NumberSequenceKeypoint.new(0.50, 0.18),
+					NumberSequenceKeypoint.new(1.00, 0.10),
+				})
+			end
+		end
+	end
+	applyPanelTheme()
+
+	-- ── Hue bar ──
+	local hueBar=Instance.new("Frame")
+	hueBar.Size=UDim2.new(barScaleW,0, barScaleH,0)
+	hueBar.Position=UDim2.new(padScaleX,0, hueScaleY,0)
+	hueBar.BackgroundColor3=Color3.new(1,1,1)
+	hueBar.BackgroundTransparency=0; hueBar.BorderSizePixel=0; hueBar.ZIndex=196; hueBar.Parent=panel
+	Instance.new("UICorner",hueBar).CornerRadius=UDim.new(1,0)
+	local hueGrad=Instance.new("UIGradient"); hueGrad.Rotation=0
+	hueGrad.Color=ColorSequence.new({
+		ColorSequenceKeypoint.new(0/6, Color3.fromRGB(255,  0,  0)),
+		ColorSequenceKeypoint.new(1/6, Color3.fromRGB(255,255,  0)),
+		ColorSequenceKeypoint.new(2/6, Color3.fromRGB(  0,255,  0)),
+		ColorSequenceKeypoint.new(3/6, Color3.fromRGB(  0,255,255)),
+		ColorSequenceKeypoint.new(4/6, Color3.fromRGB(  0,  0,255)),
+		ColorSequenceKeypoint.new(5/6, Color3.fromRGB(255,  0,255)),
+		ColorSequenceKeypoint.new(6/6, Color3.fromRGB(255,  0,  0)),
+	})
+	hueGrad.Parent=hueBar
+
+	local hueKnob=Instance.new("Frame")
+	hueKnob.Size=UDim2.fromOffset(16,16); hueKnob.AnchorPoint=Vector2.new(0.5,0.5)
+	hueKnob.Position=UDim2.new(knobPos(currentH),0,0.5,0)
+	hueKnob.BackgroundColor3=hsvToColor(currentH,1,1)
+	hueKnob.BackgroundTransparency=0; hueKnob.BorderSizePixel=0; hueKnob.ZIndex=197; hueKnob.Parent=hueBar
+	Instance.new("UICorner",hueKnob).CornerRadius=UDim.new(1,0)
+	local hkStr=Instance.new("UIStroke"); hkStr.Color=Color3.new(1,1,1)
+	hkStr.Transparency=0.15; hkStr.Thickness=2
+	hkStr.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; hkStr.Parent=hueKnob
+
+	-- ── Saturation bar ──
+	local satBar=Instance.new("Frame")
+	satBar.Size=UDim2.new(barScaleW,0, barScaleH,0)
+	satBar.Position=UDim2.new(padScaleX,0, satScaleY,0)
+	satBar.BackgroundColor3=Color3.new(1,1,1)
+	satBar.BackgroundTransparency=0; satBar.BorderSizePixel=0; satBar.ZIndex=196; satBar.Parent=panel
+	Instance.new("UICorner",satBar).CornerRadius=UDim.new(1,0)
+	local satGrad=Instance.new("UIGradient"); satGrad.Rotation=0
+	satGrad.Parent=satBar
+
+	local satKnob=Instance.new("Frame")
+	satKnob.Size=UDim2.fromOffset(16,16); satKnob.AnchorPoint=Vector2.new(0.5,0.5)
+	satKnob.Position=UDim2.new(knobPos(currentS),0,0.5,0)
+	satKnob.BackgroundColor3=Color3.new(1,1,1)
+	satKnob.BackgroundTransparency=0; satKnob.BorderSizePixel=0; satKnob.ZIndex=198; satKnob.Parent=satBar
+	Instance.new("UICorner",satKnob).CornerRadius=UDim.new(1,0)
+	local skStr=Instance.new("UIStroke"); skStr.Color=Color3.new(1,1,1)
+	skStr.Transparency=0.15; skStr.Thickness=2
+	skStr.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; skStr.Parent=satKnob
+
+	-- ── Value (Brightness) bar ──
+	local valBar=Instance.new("Frame")
+	valBar.Size=UDim2.new(barScaleW,0, barScaleH,0)
+	valBar.Position=UDim2.new(padScaleX,0, valScaleY,0)
+	valBar.BackgroundColor3=Color3.new(1,1,1)
+	valBar.BackgroundTransparency=0; valBar.BorderSizePixel=0; valBar.ZIndex=196; valBar.Parent=panel
+	Instance.new("UICorner",valBar).CornerRadius=UDim.new(1,0)
+	local valGrad=Instance.new("UIGradient"); valGrad.Rotation=0
+	valGrad.Parent=valBar
+
+	local valKnob=Instance.new("Frame")
+	valKnob.Size=UDim2.fromOffset(16,16); valKnob.AnchorPoint=Vector2.new(0.5,0.5)
+	valKnob.Position=UDim2.new(knobPos(currentV),0,0.5,0)
+	valKnob.BackgroundColor3=Color3.new(1,1,1)
+	valKnob.BackgroundTransparency=0; valKnob.BorderSizePixel=0; valKnob.ZIndex=198; valKnob.Parent=valBar
+	Instance.new("UICorner",valKnob).CornerRadius=UDim.new(1,0)
+	local vkStr=Instance.new("UIStroke"); vkStr.Color=Color3.new(1,1,1)
+	vkStr.Transparency=0.15; vkStr.Thickness=2
+	vkStr.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; vkStr.Parent=valKnob
+
+	local function updateGradients()
+		local hueCol=hsvToColor(currentH, 1, 1)
+		satGrad.Color=ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
+			ColorSequenceKeypoint.new(1, hueCol),
+		})
+		local satCol=hsvToColor(currentH, currentS, 1)
+		valGrad.Color=ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.new(0,0,0)),
+			ColorSequenceKeypoint.new(1, satCol),
+		})
+	end
+	updateGradients()
+
+	-- ── Bottom row ──
+	local syncDisplay  -- forward-declared so hex listeners defined below can close over it
+	local hexSyncLock = false
+	local hexLbl=Instance.new("TextBox")
+	hexLbl.Size=UDim2.new(90/PANEL_W,0, btnScaleH,0)
+	hexLbl.Position=UDim2.new(padScaleX,0, btnScaleY,0)
+	hexLbl.BackgroundTransparency=1; hexLbl.Text=toHex(currentColor())
+	hexLbl.Font=Enum.Font.GothamMedium; hexLbl.TextSize=12
+	hexLbl.TextColor3=T.textSecond; hexLbl.TextXAlignment=Enum.TextXAlignment.Left
+	hexLbl.ClearTextOnFocus=false; hexLbl.PlaceholderText="#RRGGBB"
+	hexLbl.PlaceholderColor3=T.textTertiary
+	hexLbl.ZIndex=196; hexLbl.Parent=panel
+	-- Apply hex input on focus lost or Enter
+	local function applyHexInput()
+		local raw = hexLbl.Text:gsub("#",""):gsub("%s",""):upper()
+		if raw == "" then hexLbl.Text = toHex(currentColor()); return end
+		if #raw == 6 and raw:match("^%x+$") then
+			local r = tonumber(raw:sub(1,2),16)/255
+			local g = tonumber(raw:sub(3,4),16)/255
+			local b = tonumber(raw:sub(5,6),16)/255
+			currentH, currentS, currentV = colorToHSV(Color3.new(r,g,b))
+			syncDisplay()
+			-- Always push the new hex to the DI regardless of open/dismiss state
+			notify("custom", label, toHex(currentColor()))
+			if diDismissThread then task.cancel(diDismissThread); diDismissThread = nil end
+			if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+		else
+			-- Invalid input: restore current hex
+			hexLbl.Text = toHex(currentColor())
+		end
+	end
+	hexLbl.FocusLost:Connect(applyHexInput)
+
+	local pickBtnW = 84
+	local pickBtn=Instance.new("TextButton")
+	pickBtn.Size=UDim2.new(pickBtnW/PANEL_W,0, btnScaleH,0)
+	pickBtn.Position=UDim2.new(108/PANEL_W,0, btnScaleY,0)
+	pickBtn.BackgroundColor3=Color3.fromRGB(72,72,82)
+	pickBtn.BackgroundTransparency=0; pickBtn.BorderSizePixel=0; pickBtn.AutoButtonColor=false
+	pickBtn.Text="Color Picker"; pickBtn.Font=Enum.Font.GothamSemibold; pickBtn.TextSize=11
+	pickBtn.TextColor3=Color3.fromRGB(255,255,255); pickBtn.ZIndex=197; pickBtn.Parent=panel
+	Instance.new("UICorner",pickBtn).CornerRadius=UDim.new(0,9)
+
+	local doneBtnW = 60
+	local doneBtn=Instance.new("TextButton")
+	doneBtn.Size=UDim2.new(doneBtnW/PANEL_W,0, btnScaleH,0)
+	doneBtn.AnchorPoint=Vector2.new(1,0)
+	doneBtn.Position=UDim2.new(1-padScaleX,0, btnScaleY,0)
+	doneBtn.BackgroundColor3=Color3.fromRGB(1,109,238)
+	doneBtn.BackgroundTransparency=0; doneBtn.BorderSizePixel=0; doneBtn.AutoButtonColor=false
+	doneBtn.Text="Done"; doneBtn.Font=Enum.Font.GothamSemibold; doneBtn.TextSize=13
+	doneBtn.TextColor3=Color3.fromRGB(255,255,255); doneBtn.ZIndex=197; doneBtn.Parent=panel
+	Instance.new("UICorner",doneBtn).CornerRadius=UDim.new(0,9)
+
+	local doneBtnBase=Color3.fromRGB(1,109,238)
+	local pickBtnBase=Color3.fromRGB(72,72,82)
+	doneBtn.MouseEnter:Connect(function() tween(doneBtn,0.10,{BackgroundColor3=doneBtnBase:Lerp(Color3.new(1,1,1),0.12)}) end)
+	doneBtn.MouseLeave:Connect(function() tween(doneBtn,0.10,{BackgroundColor3=doneBtnBase}) end)
+	pickBtn.MouseEnter:Connect(function() tween(pickBtn,0.10,{BackgroundColor3=pickBtnBase:Lerp(Color3.new(1,1,1),0.12)}) end)
+	pickBtn.MouseLeave:Connect(function() tween(pickBtn,0.10,{BackgroundColor3=pickBtnBase}) end)
+
+	syncDisplay = function()
+		local col=currentColor()
+		colorDot.BackgroundColor3=col
+		-- Update all knob positions so hex input and any other trigger stays in sync
+		hueKnob.Position=UDim2.new(knobPos(currentH),0,0.5,0)
+		hueKnob.BackgroundColor3=hsvToColor(currentH,1,1)
+		satKnob.Position=UDim2.new(knobPos(currentS),0,0.5,0)
+		valKnob.Position=UDim2.new(knobPos(currentV),0,0.5,0)
+		hexSyncLock = true
+		hexLbl.Text=toHex(col)
+		hexSyncLock = false
+		updateGradients()
+		-- Keep DI badge in sync with current hex while panel is open
+		if open then
+			if DI_SHOWING and diCurrentLabel == label then
+				-- Island already open for this picker: update badge in place
+				diBadgeLbl.Text = toHex(col)
+				if diDismissThread then task.cancel(diDismissThread); diDismissThread = nil end
+				if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+			elseif not DI_SHOWING then
+				-- Island collapsed (e.g. dismiss fired before cancel ran): reopen it
+				notify("custom", label, toHex(col))
+				if diDismissThread then task.cancel(diDismissThread); diDismissThread = nil end
+				if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+			end
+		end
+	end
+	local function refreshAll()
+		syncDisplay()
+		if callback then callback(currentColor(), currentA) end
+	end
+
+	local function positionPanel()
+		local s = uiScale.Scale
+		local abs=chooseBtn.AbsolutePosition; local sz=chooseBtn.AbsoluteSize
+		local inset=GuiService:GetGuiInset()
+		-- Use window bottom as boundary so panel never goes below the frame
+		local winBottom = Window.AbsolutePosition.Y + Window.AbsoluteSize.Y
+		local winTop = Window.AbsolutePosition.Y
+		-- PANEL_W/H are logical units; convert to screen-pixels for bounds checks.
+		local screenPW, screenPH = PANEL_W*s, PANEL_H*s
+		local px = abs.X - screenPW - 6  -- place to left of button, in screen px
+		if px < 4 then px = 4 end
+		local py = abs.Y
+		if py + screenPH + 4 > winBottom then py = winBottom - screenPH - 4 end
+		if py < winTop then py = winTop end
+		-- Panel has AnchorPoint(0.5,0.5); convert screen-center back to logical units.
+		panel.Position=UDim2.fromOffset((px + screenPW/2)/s, (py + screenPH/2 + inset.Y)/s)
+	end
+
+	-- ── Drag logic ──
+	local draggingHue=false; local draggingSat=false; local draggingVal=false
+	local dragMoved=false
+
+	local function applyHueDrag(inputPos)
+		local tp=hueBar.AbsolutePosition; local ts=hueBar.AbsoluteSize
+		currentH=math.clamp((inputPos.X-tp.X)/ts.X,0,1)
+		hueKnob.Position=UDim2.new(knobPos(currentH),0,0.5,0)
+		hueKnob.BackgroundColor3=hsvToColor(currentH,1,1)
+		syncDisplay()
+		dragMoved=true
+		local col=currentColor()
+		diTrackSlider(label, 0, "custom",
+			string.format("#%02X%02X%02X", math.round(col.R*255), math.round(col.G*255), math.round(col.B*255)), true)
+		if diDismissThread then task.cancel(diDismissThread); diDismissThread=nil end
+	end
+
+	local function applySatDrag(inputPos)
+		local tp=satBar.AbsolutePosition; local ts=satBar.AbsoluteSize
+		currentS=math.clamp((inputPos.X-tp.X)/ts.X,0,1)
+		satKnob.Position=UDim2.new(knobPos(currentS),0,0.5,0)
+		syncDisplay()
+		dragMoved=true
+		local col=currentColor()
+		diTrackSlider(label, 0, "custom",
+			string.format("#%02X%02X%02X", math.round(col.R*255), math.round(col.G*255), math.round(col.B*255)), true)
+		if diDismissThread then task.cancel(diDismissThread); diDismissThread=nil end
+	end
+
+	local function applyValDrag(inputPos)
+		local tp=valBar.AbsolutePosition; local ts=valBar.AbsoluteSize
+		currentV=math.clamp((inputPos.X-tp.X)/ts.X,0,1)
+		valKnob.Position=UDim2.new(knobPos(currentV),0,0.5,0)
+		syncDisplay()
+		dragMoved=true
+		local col=currentColor()
+		diTrackSlider(label, 0, "custom",
+			string.format("#%02X%02X%02X", math.round(col.R*255), math.round(col.G*255), math.round(col.B*255)), true)
+		if diDismissThread then task.cancel(diDismissThread); diDismissThread=nil end
+	end
+
+	hueBar.InputBegan:Connect(function(i)
+		if i.UserInputType~=Enum.UserInputType.MouseButton1 and i.UserInputType~=Enum.UserInputType.Touch then return end
+		if draggingSat or draggingVal then return end
+		draggingHue=true; dragMoved=false
+		ContentScroll.ScrollingEnabled=false
+		applyHueDrag(i.Position)
+	end)
+	hueKnob.InputBegan:Connect(function(i)
+		if i.UserInputType~=Enum.UserInputType.MouseButton1 and i.UserInputType~=Enum.UserInputType.Touch then return end
+		if draggingSat or draggingVal then return end
+		draggingHue=true; dragMoved=false
+		ContentScroll.ScrollingEnabled=false
+	end)
+
+	satBar.InputBegan:Connect(function(i)
+		if i.UserInputType~=Enum.UserInputType.MouseButton1 and i.UserInputType~=Enum.UserInputType.Touch then return end
+		if draggingHue or draggingVal then return end
+		draggingSat=true; dragMoved=false
+		ContentScroll.ScrollingEnabled=false
+		applySatDrag(i.Position)
+	end)
+	satKnob.InputBegan:Connect(function(i)
+		if i.UserInputType~=Enum.UserInputType.MouseButton1 and i.UserInputType~=Enum.UserInputType.Touch then return end
+		if draggingHue or draggingVal then return end
+		draggingSat=true; dragMoved=false
+		ContentScroll.ScrollingEnabled=false
+	end)
+
+	valBar.InputBegan:Connect(function(i)
+		if i.UserInputType~=Enum.UserInputType.MouseButton1 and i.UserInputType~=Enum.UserInputType.Touch then return end
+		if draggingHue or draggingSat then return end
+		draggingVal=true; dragMoved=false
+		ContentScroll.ScrollingEnabled=false
+		applyValDrag(i.Position)
+	end)
+	valKnob.InputBegan:Connect(function(i)
+		if i.UserInputType~=Enum.UserInputType.MouseButton1 and i.UserInputType~=Enum.UserInputType.Touch then return end
+		if draggingHue or draggingSat then return end
+		draggingVal=true; dragMoved=false
+		ContentScroll.ScrollingEnabled=false
+	end)
+
+	local moveConn=UserInputService.InputChanged:Connect(function(i)
+		if i.UserInputType~=Enum.UserInputType.MouseMovement and i.UserInputType~=Enum.UserInputType.Touch then return end
+		if draggingHue then applyHueDrag(i.Position)
+		elseif draggingSat then applySatDrag(i.Position)
+		elseif draggingVal then applyValDrag(i.Position) end
+	end)
+
+	local endConn=UserInputService.InputEnded:Connect(function(i)
+		if i.UserInputType~=Enum.UserInputType.MouseButton1 and i.UserInputType~=Enum.UserInputType.Touch then return end
+		draggingHue=false; draggingSat=false; draggingVal=false; dragMoved=false
+		ContentScroll.ScrollingEnabled=true
+	end)
+
+	row.AncestryChanged:Connect(function()
+		if not row.Parent then
+			moveConn:Disconnect()
+			endConn:Disconnect()
+			if outsideConn then outsideConn:Disconnect() end
+		end
+	end)
+
+	-- ── Open / close ──────────────────────────────────────────
+	local open=false
+	local scrollAnchorY=0
+	local skipDIDismiss=false  -- set by Done button so hex notif survives closePanel
+
+	local function closePanel()
+		if not open then return end
+		open=false
+		LG_colorPickerOpen=false
+		LG_activeColorPickerClose=nil
+		if DI_SHOWING and diCurrentLabel == label and not skipDIDismiss then diDismiss() end
+		if LG_closePanelsInstant then
+			panel.Visible=false; panel.GroupTransparency=0
+			panel.Size=UDim2.fromOffset(PANEL_W,PANEL_H)
+			return
+		end
+		tween(panel,0.12,{GroupTransparency=1})
+		TweenService:Create(panel,
+			TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+			{Size=UDim2.fromOffset(0,0)}):Play()
+		task.delay(0.30,function()
+			panel.Visible=false
+			panel.GroupTransparency=0
+			panel.Size=UDim2.fromOffset(PANEL_W,PANEL_H)
+		end)
+	end
+
+	local function openPanel()
+		if LG_activeColorPickerClose and LG_activeColorPickerClose ~= closePanel then
+			LG_activeColorPickerClose()
+		end
+		open=true
+		LG_colorPickerOpen=true
+		LG_activeColorPickerClose=closePanel
+		scrollAnchorY=ContentScroll.CanvasPosition.Y
+		-- Show Dynamic Island for the duration the panel is open
+		diShow("custom", label, toHex(currentColor()))
+		-- Cancel the auto-dismiss after expand finishes so it stays until the panel closes
+		task.delay(DI_EXPAND_TIME + 0.15, function()
+			if open and diCurrentLabel == label then
+				if diDismissThread then task.cancel(diDismissThread); diDismissThread = nil end
+				if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+			end
+		end)
+		applyPanelTheme()
+		positionPanel()
+		panel.Size=UDim2.fromOffset(0,0)
+		panel.GroupTransparency=1
+		panel.Visible=true
+		tween(panel,0.04,{GroupTransparency=0})
+		TweenService:Create(panel,
+			TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{Size=UDim2.fromOffset(PANEL_W,PANEL_H)}):Play()
+		hueKnob.Position=UDim2.new(knobPos(currentH),0,0.5,0)
+		hueKnob.BackgroundColor3=hsvToColor(currentH,1,1)
+		satKnob.Position=UDim2.new(knobPos(currentS),0,0.5,0)
+		valKnob.Position=UDim2.new(knobPos(currentV),0,0.5,0)
+		syncDisplay()
+	end
+
+	local SCROLL_CLOSE_THRESHOLD=45
+	ContentScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		if open and math.abs(ContentScroll.CanvasPosition.Y-scrollAnchorY)>SCROLL_CLOSE_THRESHOLD then
+			closePanel()
+		end
+	end)
+
+	chooseBtn.MouseButton1Click:Connect(function()
+		if open then closePanel() else openPanel() end
+	end)
+
+	doneBtn.MouseButton1Click:Connect(function()
+		refreshAll()
+		closePanel()  -- collapses DI immediately via diDismiss()
+	end)
+
+	-- ── Eyedropper ────────────────────────────────────────────
+	local eyeOverlay=Instance.new("TextButton")
+	eyeOverlay.Name="EyedropperOverlay"
+	eyeOverlay.Size=UDim2.fromScale(1,1); eyeOverlay.Position=UDim2.fromScale(0,0)
+	eyeOverlay.BackgroundTransparency=1; eyeOverlay.ZIndex=300
+	eyeOverlay.Text=""; eyeOverlay.AutoButtonColor=false
+	eyeOverlay.Active=false; eyeOverlay.Visible=false
+	eyeOverlay.Parent=ScreenGui
+
+	local cursorHint=Instance.new("TextLabel")
+	cursorHint.Size=UDim2.fromOffset(180,28); cursorHint.AnchorPoint=Vector2.new(0.5,1)
+	cursorHint.BackgroundColor3=Color3.fromRGB(20,20,26); cursorHint.BackgroundTransparency=0.1
+	cursorHint.BorderSizePixel=0; cursorHint.ZIndex=301; cursorHint.Visible=false
+	cursorHint.Text="Click to pick colour"
+	cursorHint.Font=Enum.Font.GothamMedium; cursorHint.TextSize=11
+	cursorHint.TextColor3=Color3.fromRGB(230,230,240)
+	cursorHint.TextXAlignment=Enum.TextXAlignment.Center; cursorHint.Parent=ScreenGui
+	Instance.new("UICorner",cursorHint).CornerRadius=UDim.new(0,8)
+
+	local hintMoveConn
+	local function stopEyedropper()
+		eyeOverlay.Active=false; eyeOverlay.Visible=false
+		cursorHint.Visible=false
+		if hintMoveConn then hintMoveConn:Disconnect(); hintMoveConn=nil end
+		UserInputService.MouseIconEnabled=true
+	end
+
+	pickBtn.MouseButton1Click:Connect(function()
+		if not open then return end
+		local savedSize = Window.Size
+		local savedPos  = Window.Position
+		tween(panel,0.18,{GroupTransparency=1})
+		TweenService:Create(Window,
+			TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+			{Size=UDim2.fromOffset(0,0), BackgroundTransparency=1}):Play()
+		tween(Shadow,0.3,{ImageTransparency=1})
+		tween(Overlay,0.3,{BackgroundTransparency=1})
+		tween(Blur,0.3,{Size=0})
+		task.delay(0.32,function()
+			panel.Visible=false; panel.GroupTransparency=0
+			Window.Visible=false; Shadow.Visible=false; Overlay.Visible=false; WindowBackdrop.Visible=false
+			PromptBlocker.Visible=true; LG_colorPickerOpen=false; UserInputService.MouseIconEnabled=false
+			eyeOverlay.Active=true; eyeOverlay.Visible=true; cursorHint.Visible=true
+			-- Update DI to say "Pick Color" while eyedropper is active
+			notify("custom", label, "Pick Color")
+			if diDismissThread then task.cancel(diDismissThread); diDismissThread = nil end
+			if diCollapseThread then task.cancel(diCollapseThread); diCollapseThread = nil end
+		end)
+
+		hintMoveConn=UserInputService.InputChanged:Connect(function(i)
+			if i.UserInputType==Enum.UserInputType.MouseMovement then
+				local inset=GuiService:GetGuiInset()
+				cursorHint.Position=UDim2.fromOffset(i.Position.X, i.Position.Y+inset.Y-6)
+			end
+		end)
+
+		local function finishPick(col)
+			stopEyedropper()
+			PromptBlocker.Visible=false
+			if col then
+				local h, s, v = colorToHSV(col)
+				currentH = h; currentS = s; currentV = v
+				syncDisplay(); refreshAll()
+			end
+			Window.BackgroundTransparency=1; Shadow.ImageTransparency=1
+			Overlay.BackgroundTransparency=1; Blur.Size=0
+			Window.Visible=true; Shadow.Visible=true; Overlay.Visible=true; WindowBackdrop.Visible=true
+			TweenService:Create(Window, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+				{Size=savedSize, Position=savedPos, BackgroundTransparency=0.18}):Play()
+			tween(Shadow,0.4,{Size=UDim2.fromOffset(savedSize.X.Offset+80,savedSize.Y.Offset+80),Position=savedPos,ImageTransparency=0.45})
+			tween(Overlay,0.4,{BackgroundTransparency=0.15})
+			tween(Blur,0.3,{Size=24})
+			task.defer(function() openPanel() end)
+		end
+
+		local pickConn
+		pickConn=eyeOverlay.MouseButton1Click:Connect(function()
+			pickConn:Disconnect()
+			local mp=UserInputService:GetMouseLocation()
+			local pickedCol = nil
+			local ok, guiObjects = pcall(function()
+				return game:GetService("Players").LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(mp.X, mp.Y)
+			end)
+			if ok and guiObjects then
+				for _, obj in ipairs(guiObjects) do
+					if obj ~= eyeOverlay and obj ~= cursorHint and obj ~= PromptBlocker and obj.Name ~= "PromptBlocker" then
+						if obj:IsA("GuiObject") and obj.BackgroundTransparency < 0.95 then
+							pickedCol = obj.BackgroundColor3
+							break
+						end
+					end
+				end
+			end
+			if not pickedCol then
+				local cam=workspace.CurrentCamera
+				local ray=cam:ViewportPointToRay(mp.X, mp.Y)
+				local result=workspace:Raycast(ray.Origin, ray.Direction*1000)
+				if result and result.Instance then
+					pickedCol = result.Instance:IsA("Terrain")
+						and workspace.Terrain:GetMaterialColor(result.Material)
+						or result.Instance.Color
+				end
+			end
+			finishPick(pickedCol)
+		end)
+
+		local escConn
+		escConn=UserInputService.InputBegan:Connect(function(i,gp)
+			if gp then return end
+			if i.KeyCode==Enum.KeyCode.Escape then
+				escConn:Disconnect()
+				finishPick(nil)
+			end
+		end)
+	end)
+
+	-- Close when clicking outside the panel
+	local outsideConn
+	outsideConn = UserInputService.InputBegan:Connect(function(input, gp)
+		if gp or not open then return end
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+		task.defer(function()
+			if not open then return end
+			local mp = UserInputService:GetMouseLocation()
+			local inset = GuiService:GetGuiInset()
+			local px, py = mp.X, mp.Y + inset.Y
+			-- Check panel bounds
+			local pp = panel.AbsolutePosition
+			local ps = panel.AbsoluteSize
+			local inPanel = px >= pp.X and px <= pp.X+ps.X and py >= pp.Y and py <= pp.Y+ps.Y
+			-- Check chooseBtn bounds — if clicked there, MouseButton1Click will handle it
+			local bp = chooseBtn.AbsolutePosition
+			local bs = chooseBtn.AbsoluteSize
+			local inBtn = px >= bp.X and px <= bp.X+bs.X and py >= bp.Y and py <= bp.Y+bs.Y
+			if not inPanel and not inBtn then closePanel() end
+		end)
+	end)
+
+	chooseBtn:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+		if open then positionPanel() end
+	end)
+
+	if divOrder then addDivider(card,divOrder) end
+	return {
+		GetValue = function() return currentColor(), currentA end,
+		SetValue = function(_, col, alpha)
+			currentH, currentS, currentV = colorToHSV(col)
+			if alpha then currentA = math.clamp(alpha, 0, 1) end
+			if open then
+				hueKnob.Position=UDim2.new(knobPos(currentH),0,0.5,0)
+				hueKnob.BackgroundColor3=hsvToColor(currentH,1,1)
+				satKnob.Position=UDim2.new(knobPos(currentS),0,0.5,0)
+				valKnob.Position=UDim2.new(knobPos(currentV),0,0.5,0)
+			end
+			syncDisplay()
+		end
+	}
+end
 -- ============================================================
 local selectPage  -- forward decl
 
@@ -1320,7 +2957,7 @@ local function buildSidebarRow(tabName, iconName, subText)
 	local row=Instance.new("Frame"); row.Size=UDim2.new(1,0,0,H); row.BackgroundTransparency=1
 	row.LayoutOrder=LG_sbOrder; LG_sbOrder+=1; row.ZIndex=15; row.Parent=SBList
 
-	local bg=Instance.new("Frame"); bg.Size=UDim2.fromScale(1,1); bg.BackgroundColor3=T.activeItem
+	local bg=Instance.new("Frame"); bg.Name="SidebarTabBg"; bg.Size=UDim2.fromScale(1,1); bg.BackgroundColor3=T.hoverItem
 	bg.BackgroundTransparency=1; bg.BorderSizePixel=0; bg.ZIndex=15; bg.Parent=row
 	Instance.new("UICorner",bg).CornerRadius=UDim.new(0,8)
 
@@ -1347,7 +2984,7 @@ local function buildSidebarRow(tabName, iconName, subText)
 		local sub=Instance.new("TextLabel"); sub.Size=UDim2.new(1,-(iconSize+14),0,12)
 		sub.Position=UDim2.new(0,iconSize+10,0.5,1)
 		sub.BackgroundTransparency=1; sub.Text=subText
-		sub.Font=Enum.Font.Gotham; sub.TextSize=10; sub.TextColor3=T.textTertiary
+		sub.Font=Enum.Font.Gotham; sub.TextSize=10; sub.TextColor3=Color3.fromRGB(210, 210, 222)
 		sub.TextXAlignment=Enum.TextXAlignment.Left; sub.ZIndex=16; sub.Parent=row
 	else
 		lbl.Size=UDim2.new(1,-(iconSize+14),1,0); lbl.Position=UDim2.fromOffset(iconSize+10,0)
@@ -1358,7 +2995,7 @@ local function buildSidebarRow(tabName, iconName, subText)
 	hit.BackgroundTransparency=1; hit.Text=""; hit.ZIndex=18; hit.Parent=row
 	LG_sidebarBtns[tabName]={bg=bg,lbl=lbl}
 	hit.MouseEnter:Connect(function() if LG_selected~=tabName then tween(bg,0.12,{BackgroundColor3=T.hoverItem,BackgroundTransparency=0.4}) end end)
-	hit.MouseLeave:Connect(function() if LG_selected~=tabName then tween(bg,0.12,{BackgroundTransparency=1}) end end)
+	hit.MouseLeave:Connect(function() if LG_selected~=tabName then tween(bg,0.12,{BackgroundColor3=T.hoverItem,BackgroundTransparency=1}) end end)
 	hit.MouseButton1Click:Connect(function() selectPage(tabName) end)
 end
 
@@ -1366,15 +3003,23 @@ end
 -- PAGE RENDERER
 -- ============================================================
 function selectPage(name)
+	if LG_selected == name then return end  -- already on this tab, do nothing
+	-- Save scroll position of the current tab before switching
+	if LG_selected then
+		LG_scrollMem[LG_selected] = ContentScroll.CanvasPosition
+	end
 	for n,btn in pairs(LG_sidebarBtns) do
 		if n==name then tween(btn.bg,0.18,{BackgroundColor3=T.activeItem,BackgroundTransparency=0})
-		else tween(btn.bg,0.18,{BackgroundTransparency=1}) end
+		else tween(btn.bg,0.18,{BackgroundColor3=T.hoverItem,BackgroundTransparency=1}) end
 	end
 	LG_selected=name
+	-- Flash overlay to mask the instant content swap, then fade out
+	TabFadeOverlay.BackgroundColor3 = (LG_theme == "solid") and Color3.fromRGB(14,14,16) or T.windowBg
+	TabFadeOverlay.BackgroundTransparency=0.0
 	for _,c in ipairs(ContentList:GetChildren()) do
 		if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then c:Destroy() end
 	end
-	ContentScroll.CanvasPosition=Vector2.zero
+	-- (scroll position restored after content is built below)
 
 	local tabDat=LG_tabData[name]
 	if not tabDat then return end
@@ -1387,11 +3032,12 @@ function selectPage(name)
 	local order=10
 	for gi,sec in ipairs(tabDat.sections) do
 		if sec.header then
-			spacer(ContentList,8,order); order+=1
+			spacer(ContentList,gi==1 and 8 or 18,order); order+=1
 			local hl=Instance.new("TextLabel"); hl.Size=UDim2.new(1,0,0,18); hl.BackgroundTransparency=1
 			hl.Text=sec.header:upper(); hl.Font=Enum.Font.GothamBold; hl.TextSize=11
 			hl.TextColor3=T.textTertiary; hl.TextXAlignment=Enum.TextXAlignment.Left
 			hl.LayoutOrder=order; hl.ZIndex=14; hl.Parent=ContentList; order+=1
+			spacer(ContentList,4,order); order+=1
 		else
 			spacer(ContentList,gi==1 and 4 or 10,order); order+=1
 		end
@@ -1400,32 +3046,276 @@ function selectPage(name)
 		local n=#sec.controls
 		for ii,ctrl in ipairs(sec.controls) do
 			local ro=ii*10; local dv=(ii<n) and (ro+5) or nil
+			-- Wrap callback to persist current value into ctrl.default so
+			-- tab switches rebuild with the user's latest state, not initial.
+			local userCb = ctrl.callback
 			if ctrl.type=="toggle" then
-				ctrl._handle=buildToggle(card,ctrl.label,ctrl.default,ctrl.callback,ro,dv)
+				local wrap = function(v) ctrl.default = v; if userCb then userCb(v) end end
+				ctrl._handle=buildToggle(card,ctrl.label,ctrl.default,wrap,ro,dv)
 			elseif ctrl.type=="slider" then
-				ctrl._handle=buildSlider(card,ctrl.label,ctrl.default,ctrl.callback,ro,dv)
+				local wrap = function(v) ctrl.default = v; if userCb then userCb(v) end end
+				ctrl._handle=buildSlider(card,ctrl.label,ctrl.default,wrap,userCb~=nil,ro,dv)
 			elseif ctrl.type=="info" then
 				ctrl._handle=buildInfo(card,ctrl.label,ctrl.value,ro,dv)
+			elseif ctrl.type=="label" then
+				ctrl._handle=buildLabel(card,ctrl.text,ro,dv)
 			elseif ctrl.type=="dropdown" then
-				ctrl._handle=buildDropdown(card,ctrl.label,ctrl.options,ctrl.default,ctrl.callback,ro,dv)
+				local wrap = function(i,opt) ctrl.default = i; if userCb then userCb(i,opt) end end
+				ctrl._handle=buildDropdown(card,ctrl.label,ctrl.options,ctrl.default,wrap,ro,dv)
 			elseif ctrl.type=="button" then
 				ctrl._handle=buildButton(card,ctrl.label,ctrl.btnText,ctrl.callback,ro,dv)
+			elseif ctrl.type=="colorpicker" then
+				local wrap=function(col,a) ctrl.defaultColor=col; ctrl.defaultAlpha=a; if ctrl.callback then ctrl.callback(col,a) end end
+				ctrl._handle=buildColorPicker(card,ctrl.label,ctrl.defaultColor,wrap,ro,dv)
 			end
 		end
 	end
-	spacer(ContentList,20,order+999)
-	ContentList.GroupTransparency=1
-	tween(ContentList,0.25,{GroupTransparency=0},Enum.EasingStyle.Quad)
+  spacer(ContentList,20,order+999)
+	-- Re-apply solid theme first, then fade overlay out so controls
+	-- are never visible in the wrong (glass) colors during transition.
+	if LG_theme ~= "glass" and applyTheme then
+		task.defer(function()
+			applyTheme(LG_theme, false)
+			ContentScroll.CanvasPosition = LG_scrollMem[name] or Vector2.zero
+			tween(TabFadeOverlay,0.22,{BackgroundTransparency=1},Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+		end)
+	else
+		-- Restore scroll position now that canvas has been populated
+		ContentScroll.CanvasPosition = LG_scrollMem[name] or Vector2.zero
+		tween(TabFadeOverlay,0.22,{BackgroundTransparency=1},Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
+	end
+end
+
+-- ── Search result focus + flash highlight ──────────────────────
+local function LG_findControlRow(controlLabel)
+	-- Structure: ContentList → card (Frame) → content (Frame,"Content") → row (Frame)
+	for _,card in ipairs(ContentList:GetChildren()) do
+		if card:IsA("Frame") then
+			local contentFrame = card:FindFirstChild("Content")
+			if contentFrame then
+				for _,row in ipairs(contentFrame:GetChildren()) do
+					if row:IsA("Frame") then
+						for _,desc in ipairs(row:GetDescendants()) do
+							if desc:IsA("TextLabel") and desc.Text == controlLabel then
+								return row
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function LG_flashRow(row)
+	if not row or not row.Parent then return end
+	-- Use a rounded overlay frame so the highlight has soft corners
+	local overlay = Instance.new("Frame")
+	overlay.Name = "FocusFlash"
+	overlay.Size = UDim2.new(1, -8, 1, -4)
+	overlay.AnchorPoint = Vector2.new(0.5, 0.5)
+	overlay.Position = UDim2.new(0.5, 0, 0.5, 0)
+	overlay.BackgroundColor3 = T.blue or Color3.fromRGB(1, 109, 238)
+	overlay.BackgroundTransparency = 1
+	overlay.BorderSizePixel = 0
+	overlay.ZIndex = row.ZIndex + 1
+	overlay.Parent = row
+	Instance.new("UICorner", overlay).CornerRadius = UDim.new(0, 8)
+	tween(overlay, 0.18, {BackgroundTransparency = 0.75}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	task.delay(1.2, function()
+		if overlay and overlay.Parent then
+			tween(overlay, 0.45, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			task.delay(0.5, function()
+				if overlay then overlay:Destroy() end
+			end)
+		end
+	end)
+end
+
+-- Flash a section header label in ContentList
+local function LG_flashSection(headerText)
+	for _,child in ipairs(ContentList:GetChildren()) do
+		if child:IsA("TextLabel") and child.Text == headerText:upper() then
+			local overlay = Instance.new("Frame")
+			overlay.Size = UDim2.new(1, 0, 1, 4)
+			overlay.AnchorPoint = Vector2.new(0, 0.5)
+			overlay.Position = UDim2.new(0, 0, 0.5, 0)
+			overlay.BackgroundColor3 = T.blue
+			overlay.BackgroundTransparency = 1
+			overlay.BorderSizePixel = 0
+			overlay.ZIndex = child.ZIndex + 1
+			overlay.Parent = child
+			Instance.new("UICorner", overlay).CornerRadius = UDim.new(0, 6)
+			tween(overlay, 0.18, {BackgroundTransparency = 0.75}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			task.delay(1.2, function()
+				if overlay and overlay.Parent then
+					tween(overlay, 0.45, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+					task.delay(0.5, function() if overlay then overlay:Destroy() end end)
+				end
+			end)
+			break
+		end
+	end
+end
+
+local function LG_focusControl(tabName, controlLabel)
+	local function doScrollAndFlash()
+		local row = LG_findControlRow(controlLabel)
+		if not row then return end
+
+		local function doScroll(attempts)
+			attempts = attempts or 0
+			-- Wait two frames so AbsolutePosition & canvas size are settled
+			-- (same pattern used by showSRF). This is the fix for search results
+			-- only scrolling halfway when clicked from the top of a tab.
+			RunService.RenderStepped:Wait()
+			RunService.RenderStepped:Wait()
+
+			local s = uiScale.Scale
+			local canvasH = ContentScroll.AbsoluteCanvasSize.Y/s
+			local viewH   = ContentScroll.AbsoluteSize.Y/s
+			-- Retry if canvas OR row layout hasn't resolved yet
+			if (canvasH == 0 or row.AbsoluteSize.Y == 0) and attempts < 20 then
+				task.defer(function() doScroll(attempts + 1) end)
+				return
+			end
+			-- rowCanvasY = row's true offset from the top of the canvas (Y=0).
+			-- AbsolutePosition reflects the current scroll position, so
+			-- (row.AbsolutePosition.Y - ContentList.AbsolutePosition.Y) gives the
+			-- row's offset from the *visible* top, not the canvas top. We must add
+			-- CanvasPosition.Y (already in logical units) to get the canvas offset.
+			local rowCanvasY = (row.AbsolutePosition.Y - ContentList.AbsolutePosition.Y)/s
+				+ ContentScroll.CanvasPosition.Y
+			local rowH       = row.AbsoluteSize.Y/s
+			local maxScroll  = math.max(0, canvasH - viewH)
+
+			-- Always center the row in the view. Users click a search result
+			-- because they want to go there — don't second-guess with a
+			-- "already visible" check.
+			local targetY = rowCanvasY - (viewH / 2) + (rowH / 2)
+			targetY = math.clamp(targetY, 0, maxScroll)
+
+			tween(ContentScroll, 0.35, {CanvasPosition = Vector2.new(0, targetY)},
+				Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+			task.delay(0.25, function() LG_flashRow(row) end)
+		end
+
+		task.defer(function() doScroll() end)
+	end
+	if LG_selected ~= tabName then
+		selectPage(tabName)
+		-- Bumped from 0.08 → 0.12 so selectPage's deferred CanvasPosition
+		-- restore finishes before we tween, otherwise it overwrites the target.
+		task.delay(0.12, doScrollAndFlash)
+	else
+		-- task.defer instead of task.delay(0.05); the RenderStepped waits
+		-- inside doScroll now handle layout timing.
+		task.defer(doScrollAndFlash)
+	end
+end
+
+-- Focus a section header — scroll to it and flash it
+local function LG_focusSection(tabName, sectionHeader)
+	local function doFocus()
+		for _,child in ipairs(ContentList:GetChildren()) do
+			if child:IsA("TextLabel") and child.Text == sectionHeader:upper() then
+				local function doScroll(attempts)
+					attempts = attempts or 0
+					-- Wait two frames so AbsolutePosition & canvas size are settled
+					RunService.RenderStepped:Wait()
+					RunService.RenderStepped:Wait()
+
+					local s = uiScale.Scale
+					local canvasH = ContentScroll.AbsoluteCanvasSize.Y/s
+					local viewH   = ContentScroll.AbsoluteSize.Y/s
+					if (canvasH == 0 or child.AbsoluteSize.Y == 0) and attempts < 20 then
+						task.defer(function() doScroll(attempts + 1) end)
+						return
+					end
+					local rowCanvasY = (child.AbsolutePosition.Y - ContentList.AbsolutePosition.Y)/s
+						+ ContentScroll.CanvasPosition.Y
+					local maxScroll  = math.max(0, canvasH - viewH)
+					local targetY    = rowCanvasY - 20
+					targetY = math.clamp(targetY, 0, maxScroll)
+					tween(ContentScroll, 0.35, {CanvasPosition=Vector2.new(0,targetY)}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+					task.delay(0.2, function() LG_flashSection(sectionHeader) end)
+				end
+				task.defer(function() doScroll() end)
+				break
+			end
+		end
+	end
+	if LG_selected ~= tabName then
+		selectPage(tabName)
+		task.delay(0.12, doFocus)
+	else
+		doFocus()
+	end
 end
 
 -- ── Search ──────────────────────────────────────────────────
 
+-- Tracks the full (expanded) height of the SRF panel so open/close
+-- animations know the target size. Set in showSRF.
+local LG_SRF_targetH = 0
+-- Monotonic token: each open/close bumps this; deferred cleanup bails
+-- if the token changed (user reopened during a close animation).
+local LG_SRF_animToken = 0
+-- Forward-declare clearSRF so hideSRFAnimated can reference it.
+local clearSRF
+
+-- Animate SRF closed using the same shape as dropdown closePanel:
+-- fade bg + content, collapse height with Back/In, then hide & clear.
+-- Tracks whether a close animation is currently running so rapid repeat
+-- calls (e.g. dismissSearch + scroll-close + empty-query runSearch all
+-- firing within the same click) don't restart the animation mid-flight.
+local LG_SRF_closing = false
+
+local function hideSRFAnimated()
+	if not SRF.Visible then return end
+	if LG_SRF_closing then return end  -- already animating closed
+	LG_SRF_closing = true
+	LG_SRF_animToken = LG_SRF_animToken + 1
+	local myToken = LG_SRF_animToken
+	-- Do NOT read SRF.Size.*.Offset here — if showSRF's open tween is still
+	-- running (happens when the user deletes text or clicks a result shortly
+	-- after typing), Roblox returns the tween's *start* values, not the live
+	-- animated ones, so curH would be 0 and the collapse animates 0→0.
+	-- Instead use the cached target height, and snap the panel to that size
+	-- first to cancel the in-flight open tween.
+	local curW = Sidebar.AbsoluteSize.X/uiScale.Scale - 16
+	local curH = LG_SRF_targetH > 0 and LG_SRF_targetH or SRF.AbsoluteSize.Y/uiScale.Scale
+	SRF.Size = UDim2.fromOffset(curW, curH)
+	tween(SRF, 0.10, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad)
+	-- Recursively fade all descendants so nested labels/frames dissolve too
+	for _,d in ipairs(SRF:GetDescendants()) do
+		if d:IsA("TextLabel") or d:IsA("TextButton") then
+			tween(d, 0.10, {TextTransparency = 1, BackgroundTransparency = 1}, Enum.EasingStyle.Quad)
+		elseif d:IsA("Frame") then
+			tween(d, 0.10, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad)
+		elseif d:IsA("UIStroke") then
+			tween(d, 0.10, {Transparency = 1}, Enum.EasingStyle.Quad)
+		end
+	end
+	tween(SRF, 0.25, {Size = UDim2.fromOffset(curW, 0)},
+		Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	task.delay(0.27, function()
+		if myToken ~= LG_SRF_animToken then
+			-- Reopened mid-animation: leave state alone, showSRF handled it
+			return
+		end
+		SRF.Visible = false
+		SRF.BackgroundTransparency = 0
+		SRF.Size = UDim2.fromOffset(curW, curH)
+		if clearSRF then clearSRF() end
+		LG_SRF_closing = false
+	end)
+end
+
 local function dismissSearch()
 	SearchBox.Text = ""
-	-- restore sidebar rows
-	for _,c in ipairs(SBList:GetChildren()) do
-		if c:IsA("Frame") then c.Visible = true end
-	end
+	hideSRFAnimated()
 end
 
 -- Results panel — parented to ScreenGui so Sidebar clipping doesn't affect it
@@ -1435,8 +3325,9 @@ SRF.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
 SRF.BackgroundTransparency = 0
 SRF.BorderSizePixel = 0
 SRF.ScrollBarThickness = 0
-SRF.CanvasSize = UDim2.fromScale(1, 0)
+SRF.CanvasSize = UDim2.fromOffset(0, 0)
 SRF.AutomaticCanvasSize = Enum.AutomaticSize.Y
+SRF.ScrollingDirection = Enum.ScrollingDirection.Y
 SRF.ClipsDescendants = true
 SRF.Visible = false
 SRF.ZIndex = 60
@@ -1449,152 +3340,328 @@ srfStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; srfStroke.Parent = SRF
 local srfList = Instance.new("UIListLayout"); srfList.Padding = UDim.new(0,0)
 srfList.SortOrder = Enum.SortOrder.LayoutOrder; srfList.Parent = SRF
 local srfPad = Instance.new("UIPadding"); srfPad.PaddingTop = UDim.new(0,4)
-srfPad.PaddingBottom = UDim.new(0,4); srfPad.Parent = SRF
+srfPad.PaddingBottom = UDim.new(0,4)
+srfPad.PaddingLeft = UDim.new(0,6); srfPad.PaddingRight = UDim.new(0,6)
+srfPad.Parent = SRF
 
-local function clearSRF()
+clearSRF = function()
 	for _,c in ipairs(SRF:GetChildren()) do
-		if c:IsA("TextButton") or c:IsA("TextLabel") then c:Destroy() end
+		if c:IsA("TextButton") or c:IsA("TextLabel") or c:IsA("Frame") then c:Destroy() end
 	end
 end
+
+-- Close search results when the user scrolls the content area.
+-- Uses a threshold so tiny jitter doesn't dismiss. SRF.Visible guard
+-- means programmatic scrolls (e.g. LG_focusControl's tween) won't
+-- retrigger this — dismissSearch fires before the tween starts anyway.
+local SRF_SCROLL_CLOSE_THRESHOLD = 12
+local srfScrollAnchorY = 0
+ContentScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+	if not SRF.Visible then
+		srfScrollAnchorY = ContentScroll.CanvasPosition.Y
+		return
+	end
+	if math.abs(ContentScroll.CanvasPosition.Y - srfScrollAnchorY) > SRF_SCROLL_CLOSE_THRESHOLD then
+		dismissSearch()
+	end
+end)
+-- Keep the anchor synced whenever SRF becomes visible, so the threshold
+-- is measured from the scroll position at the moment results opened.
+SRF:GetPropertyChangedSignal("Visible"):Connect(function()
+	if SRF.Visible then
+		srfScrollAnchorY = ContentScroll.CanvasPosition.Y
+	end
+end)
 
 -- Position and size the panel to sit just below the search bar in screen space.
 -- Uses RunService to wait one frame so AbsolutePosition is valid.
 local RunService = game:GetService("RunService")
-local function showSRF(resultCount)
+local LG_searchGen = 0  -- incremented each query; showSRF bails if stale
+local function showSRF(resultCount, gen)
 	-- Wait two frames so all AbsolutePositions are settled
 	RunService.RenderStepped:Wait()
 	RunService.RenderStepped:Wait()
+	if gen ~= LG_searchGen then return end  -- a newer query already ran
 	-- SearchWrap.AbsolutePosition is in true screen pixels from top-left.
 	-- Our ScreenGui uses IgnoreGuiInset=true so its Y=0 is also the true top.
 	-- Therefore we can use AbsolutePosition directly — no inset adjustment.
 	-- Sidebar starts at Y=50 inside Window (below titlebar).
 	-- Search bar is at Y=10 inside Sidebar, height=32.
 	-- So the panel should sit at: Sidebar.AbsoluteY + 50 + 32 + 8
+	local s = uiScale.Scale
 	local sideX  = Sidebar.AbsolutePosition.X
 	local sideY  = Sidebar.AbsolutePosition.Y
-	local panelX = sideX + 8
-	local panelY = sideY + 10 + 32 + 6 + GuiService:GetGuiInset().Y
-	local panelW = Sidebar.AbsoluteSize.X - 16
-	local rowH   = 44
-	local panelH = math.min(resultCount * rowH + 8, 320)
+	local panelX = sideX/s + 8
+	local panelY = (sideY + GuiService:GetGuiInset().Y)/s + 10 + 32 + 6
+	local panelW = Sidebar.AbsoluteSize.X/s - 16
+	-- 34px per category header + 36px per visible control row
+	local panelH = math.min(resultCount * 36 + 8, 360)
 	SRF.Position = UDim2.fromOffset(panelX, panelY)
-	SRF.Size     = UDim2.fromOffset(panelW, panelH)
-	SRF.Visible  = true
+	-- If already visible (e.g. user refining search), just resize smoothly.
+	-- Otherwise play the dropdown-style open animation.
+	LG_SRF_animToken = LG_SRF_animToken + 1
+	LG_SRF_targetH = panelH
+	LG_SRF_closing = false  -- cancel any in-progress close
+	if SRF.Visible then
+		-- Reset any in-progress close-fade on children (covers the
+		-- reopen-during-close-animation case: user types again before the
+		-- hide animation finishes).
+		SRF.BackgroundTransparency = 0
+		for _,c in ipairs(SRF:GetChildren()) do
+			if c:IsA("TextLabel") then c.TextTransparency = 0 end
+		end
+		-- Use Back/Out (bouncy) when growing to match the open animation.
+		-- When shrinking, use Quad/Out — Back/Out would overshoot past the
+		-- smaller target (making the panel briefly disappear or jitter).
+		local curH = SRF.Size.Y.Offset
+		if panelH > curH then
+			tween(SRF, 0.2, {Size = UDim2.fromOffset(panelW, panelH)},
+				Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		else
+			tween(SRF, 0.15, {Size = UDim2.fromOffset(panelW, panelH)},
+				Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		end
+	else
+		SRF.Size = UDim2.fromOffset(panelW, 0)
+		SRF.BackgroundTransparency = 1
+		SRF.Visible = true
+		tween(SRF, 0.2,
+			{BackgroundTransparency = 0, Size = UDim2.fromOffset(panelW, panelH)},
+			Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	end
 end
 
-local function addSRFResult(tabName, controlLabel, sectionHeader, order)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, 44)
-	btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	btn.BackgroundTransparency = 1
-	btn.BorderSizePixel = 0
-	btn.AutoButtonColor = false
-	btn.Text = ""
-	btn.LayoutOrder = order
-	btn.ZIndex = 61
-	btn.Parent = SRF
+-- Collapse state: key = "tabName|sectionHeader", value = bool (collapsed)
+local SRF_collapsed = {}
 
-	-- Breadcrumb
-	local crumb = Instance.new("TextLabel")
-	crumb.Size = UDim2.new(1, -16, 0, 13)
-	crumb.Position = UDim2.fromOffset(12, 5)
-	crumb.BackgroundTransparency = 1
-	local bc = sectionHeader and (tabName .. " › " .. sectionHeader) or tabName
-	crumb.Text = bc:upper()
-	crumb.Font = Enum.Font.Gotham
-	crumb.TextSize = 9
-	crumb.TextColor3 = T.textTertiary
-	crumb.TextXAlignment = Enum.TextXAlignment.Left
-	crumb.TextTruncate = Enum.TextTruncate.AtEnd
-	crumb.ZIndex = 62
-	crumb.Parent = btn
+local function addSRFCategory(tabName, sectionHeader, controlResults, baseOrder)
+	-- Category header row (clickable, collapsible)
+	local headerKey = tabName .. "|" .. (sectionHeader or "")
+	if SRF_collapsed[headerKey] == nil then SRF_collapsed[headerKey] = false end
 
-	-- Main label
-	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.new(1, -16, 0, 18)
-	lbl.Position = UDim2.fromOffset(12, 20)
-	lbl.BackgroundTransparency = 1
-	lbl.Text = controlLabel
-	lbl.Font = Enum.Font.GothamMedium
-	lbl.TextSize = 13
-	lbl.TextColor3 = T.textPrimary
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-	lbl.TextTruncate = Enum.TextTruncate.AtEnd
-	lbl.ZIndex = 62
-	lbl.Parent = btn
+	local hdr = Instance.new("TextButton")
+	hdr.Size = UDim2.new(1, 0, 0, 34)
+	hdr.BackgroundColor3 = T.cardBg
+	hdr.BackgroundTransparency = 0.35
+	hdr.BorderSizePixel = 0
+	hdr.AutoButtonColor = false
+	hdr.Text = ""
+	hdr.LayoutOrder = baseOrder
+	hdr.ZIndex = 61
+	hdr.Parent = SRF
+	Instance.new("UICorner", hdr).CornerRadius = UDim.new(0, 8)
+	local hpad = Instance.new("UIPadding"); hpad.PaddingLeft = UDim.new(0,10); hpad.Parent = hdr
 
-	-- Divider
-	local div = Instance.new("Frame")
-	div.Size = UDim2.new(1, -24, 0, 1)
-	div.Position = UDim2.fromOffset(12, 43)
-	div.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	div.BackgroundTransparency = 0.88
-	div.BorderSizePixel = 0
-	div.ZIndex = 62
-	div.Parent = btn
+	local arrow = Instance.new("TextLabel")
+	arrow.Size = UDim2.fromOffset(14, 34)
+	arrow.Position = UDim2.fromOffset(0, 0)
+	arrow.BackgroundTransparency = 1
+	arrow.Text = SRF_collapsed[headerKey] and "+" or "-"
+	arrow.Font = Enum.Font.GothamBold
+	arrow.TextSize = 13
+	arrow.TextColor3 = T.textTertiary
+	arrow.ZIndex = 62
+	arrow.Parent = hdr
 
-	btn.MouseEnter:Connect(function()
-		tween(btn, 0.08, {BackgroundColor3=Color3.fromRGB(255,255,255), BackgroundTransparency=0.92})
+	local catLbl = Instance.new("TextLabel")
+	catLbl.Size = UDim2.new(1,-58,1,0)
+	catLbl.Position = UDim2.fromOffset(16,0)
+	catLbl.BackgroundTransparency = 1
+	local catText = sectionHeader and (tabName .. " › " .. sectionHeader) or tabName
+	catLbl.Text = catText:upper()
+	catLbl.Font = Enum.Font.GothamBold
+	catLbl.TextSize = 10
+	catLbl.TextColor3 = T.textSecond
+	catLbl.TextXAlignment = Enum.TextXAlignment.Left
+	catLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	catLbl.ZIndex = 62
+	catLbl.Parent = hdr
+
+	hdr.MouseEnter:Connect(function() tween(hdr,0.08,{BackgroundTransparency=0.20}) end)
+	hdr.MouseLeave:Connect(function() tween(hdr,0.08,{BackgroundTransparency=0.35}) end)
+
+	-- Child result rows (hidden when collapsed)
+	local childRows = {}
+	for ci, ctrl in ipairs(controlResults) do
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(1, 0, 0, 36)
+		btn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+		btn.BackgroundTransparency = 1
+		btn.BorderSizePixel = 0
+		btn.AutoButtonColor = false
+		btn.Text = ""
+		btn.LayoutOrder = baseOrder + ci
+		btn.ZIndex = 61
+		btn.Visible = not SRF_collapsed[headerKey]
+		btn.Parent = SRF
+		table.insert(childRows, btn)
+
+		local indent = Instance.new("Frame")
+		indent.Name = "indent"
+		indent.Size = UDim2.new(0, 2, 0.6, 0)
+		indent.AnchorPoint = Vector2.new(0, 0.5)
+		indent.Position = UDim2.new(0, 14, 0.5, 0)
+		indent.BackgroundColor3 = T.blue
+		indent.BackgroundTransparency = 0.5
+		indent.BorderSizePixel = 0
+		indent.ZIndex = 62
+		indent.Parent = btn
+		Instance.new("UICorner", indent).CornerRadius = UDim.new(1,0)
+
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.new(1,-32,1,0)
+		lbl.Position = UDim2.fromOffset(24, 0)
+		lbl.BackgroundTransparency = 1
+		lbl.Text = ctrl.label
+		lbl.Font = Enum.Font.GothamMedium
+		lbl.TextSize = 13
+		lbl.TextColor3 = T.textPrimary
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextTruncate = Enum.TextTruncate.AtEnd
+		lbl.ZIndex = 62
+		lbl.Parent = btn
+
+		-- Thin divider under each row except the last
+		if ci < #controlResults then
+			local div = Instance.new("Frame")
+			div.Size = UDim2.new(1, -24, 0, 1)
+			div.Position = UDim2.new(0, 12, 1, -1)
+			div.BackgroundColor3 = Color3.fromRGB(255,255,255)
+			div.BackgroundTransparency = 0.88
+			div.BorderSizePixel = 0
+			div.ZIndex = 62
+			div.Parent = btn
+		end
+		btn.MouseEnter:Connect(function() tween(btn,0.08,{BackgroundColor3=Color3.fromRGB(255,255,255),BackgroundTransparency=0.92}) end)
+		btn.MouseLeave:Connect(function() tween(btn,0.08,{BackgroundTransparency=1}) end)
+		btn.MouseButton1Click:Connect(function()
+			dismissSearch()
+			LG_focusControl(ctrl.tab, ctrl.label)
+		end)
+	end
+
+	-- Toggle collapse on header click — animate child row heights for smooth feel
+	hdr.MouseButton1Click:Connect(function()
+		SRF_collapsed[headerKey] = not SRF_collapsed[headerKey]
+		local collapsed = SRF_collapsed[headerKey]
+		arrow.Text = collapsed and "+" or "-"
+		if collapsed then
+			-- Fade content out fast first, then collapse height slowly
+			for _,r in ipairs(childRows) do
+				-- Fade all text/visual children immediately
+				for _,child in ipairs(r:GetChildren()) do
+					if child:IsA("TextLabel") or child:IsA("Frame") then
+						tween(child, 0.08, {BackgroundTransparency=1}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+						if child:IsA("TextLabel") then
+							tween(child, 0.08, {TextTransparency=1}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+						end
+					end
+				end
+				-- Then collapse height
+				tween(r, 0.20, {Size=UDim2.new(1, 0, 0, 0)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			end
+			task.delay(0.20, function()
+				for _,r in ipairs(childRows) do
+					r.Visible = false
+					r.Size = UDim2.new(1, 0, 0, 36)
+					-- Reset child opacities so expand looks correct next time
+					for _,child in ipairs(r:GetChildren()) do
+						if child:IsA("TextLabel") then child.TextTransparency = 0 end
+						if child:IsA("Frame") then
+							if child.Name == "indent" then child.BackgroundTransparency = 0.5
+							elseif child.Size.Y.Offset == 1 then child.BackgroundTransparency = 0.88
+							else child.BackgroundTransparency = 1 end
+						end
+					end
+				end
+			end)
+		else
+			-- Expand: show at height 0 then tween to full height
+			for _,r in ipairs(childRows) do
+				r.Size = UDim2.new(1, 0, 0, 0)
+				r.Visible = true
+				tween(r, 0.22, {Size=UDim2.new(1, 0, 0, 36)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+			end
+		end
 	end)
-	btn.MouseLeave:Connect(function()
-		tween(btn, 0.08, {BackgroundTransparency=1})
-	end)
-	btn.MouseButton1Click:Connect(function()
+
+	-- Long-press / right-side button navigates to the category
+	local catClickBtn = Instance.new("TextButton")
+	catClickBtn.Size = UDim2.fromOffset(28, 34)
+	catClickBtn.AnchorPoint = Vector2.new(1,0.5)
+	catClickBtn.Position = UDim2.new(1,-4,0.5,0)
+	catClickBtn.BackgroundTransparency = 1
+	catClickBtn.Text = "›"
+	catClickBtn.Font = Enum.Font.GothamBold
+	catClickBtn.TextSize = 16
+	catClickBtn.TextColor3 = T.textTertiary
+	catClickBtn.ZIndex = 63
+	catClickBtn.Parent = hdr
+	catClickBtn.MouseButton1Click:Connect(function()
 		dismissSearch()
-		SRF.Visible = false
-		clearSRF()
-		selectPage(tabName)
+		if sectionHeader then
+			LG_focusSection(tabName, sectionHeader)
+		else
+			selectPage(tabName)
+		end
 	end)
 end
 
-SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+local LG_lastSearchQ = ""
+
+local function runSearch()
 	local q = SearchBox.Text:lower()
-	clearSRF()
+	if q == LG_lastSearchQ then return end
+	LG_lastSearchQ = q
+	LG_searchGen = LG_searchGen + 1
+	local myGen = LG_searchGen
 
 	if q == "" then
-		SRF.Visible = false
-		for _,c in ipairs(SBList:GetChildren()) do
-			if c:IsA("Frame") then c.Visible = true end
-		end
+		-- Animate close; hideSRFAnimated will clearSRF when done.
+		hideSRFAnimated()
 		return
 	end
 
-	-- Hide sidebar rows while searching
-	for _,c in ipairs(SBList:GetChildren()) do
-		if c:IsA("Frame") then c.Visible = false end
+	clearSRF()
+
+
+
+	-- Group results by tab+section
+	local groups = {}   -- ordered list of {tab, section, controls=[]}
+	local groupIdx = {} -- key "tab|section" -> index in groups
+
+	local function getGroup(tabName, sectionHeader)
+		local key = tabName .. "|" .. (sectionHeader or "")
+		if not groupIdx[key] then
+			table.insert(groups, {tab=tabName, section=sectionHeader, controls={}})
+			groupIdx[key] = #groups
+		end
+		return groups[groupIdx[key]]
 	end
 
-	local results = {}
-	for _,tabName in ipairs(LG_tabs) do
-		if tabName:lower():find(q, 1, true) then
-			table.insert(results, {tab=tabName, label=tabName, section=nil})
-		end
-	end
+	-- Match controls and section headers (no bare tab-name matches)
 	for _,tabName in ipairs(LG_tabs) do
 		local td = LG_tabData[tabName]
 		if td then
 			for _,sec in ipairs(td.sections) do
+				local secMatch = sec.header and sec.header:lower():find(q,1,true)
 				for _,ctrl in ipairs(sec.controls) do
-					local ltext = (ctrl.label or ""):lower()
-					local vtext = (ctrl.value or ctrl.btnText or ""):lower()
-					if ltext:find(q,1,true) or vtext:find(q,1,true) then
-						-- avoid duplicating a pure tab-name match
-						local dupe = false
-						for _,r in ipairs(results) do
-							if r.tab==tabName and r.label==ctrl.label and r.section==sec.header then
-								dupe=true; break
-							end
-						end
-						if not dupe then
-							table.insert(results, {tab=tabName, label=ctrl.label, section=sec.header})
-						end
+					-- Resolve display label; skip controls with nothing to show (e.g. AddLabel text rows)
+					local displayLabel = ctrl.label or ctrl.btnText or ctrl.text
+					if not displayLabel or displayLabel == "" then continue end
+					local ltext = displayLabel:lower()
+					local vtext = (ctrl.value or ""):lower()
+					-- Include if control matches OR its section header matches
+					if ltext:find(q,1,true) or vtext:find(q,1,true) or secMatch then
+						local g = getGroup(tabName, sec.header)
+						table.insert(g.controls, {tab=tabName, label=displayLabel, section=sec.header})
 					end
 				end
 			end
 		end
 	end
 
-	if #results == 0 then
+	if #groups == 0 then
 		local nr = Instance.new("TextButton")
 		nr.Size = UDim2.new(1, 0, 0, 40)
 		nr.BackgroundTransparency = 1; nr.AutoButtonColor = false
@@ -1603,13 +3670,32 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
 		nr.TextColor3 = T.textTertiary
 		nr.LayoutOrder = 1; nr.ZIndex = 61
 		nr.Parent = SRF
-	else
-		for i, r in ipairs(results) do
-			addSRFResult(r.tab, r.label, r.section, i)
-		end
 	end
 
-	task.spawn(function() showSRF(math.max(1, #results)) end)
+	local order = 1
+	local totalRows = 0
+	for _,g in ipairs(groups) do
+		addSRFCategory(g.tab, g.section, g.controls, order)
+		order = order + 1 + #g.controls
+		local collapsed = SRF_collapsed[g.tab.."|"..(g.section or "")]
+		totalRows = totalRows + 1 + (collapsed and 0 or #g.controls)
+	end
+
+	task.spawn(function() showSRF(math.max(1, totalRows), myGen) end)
+end
+
+-- Poll every frame while focused so no keystroke is missed
+SearchBox.Focused:Connect(function()
+	LG_lastSearchQ = ""  -- force re-evaluation on focus
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		if not SearchBox:IsFocused() then conn:Disconnect(); return end
+		runSearch()
+	end)
+end)
+-- Reset search state when focus is lost
+SearchBox.FocusLost:Connect(function()
+	LG_lastSearchQ = ""
 end)
 
 -- Dismiss when clicking outside
@@ -1619,17 +3705,574 @@ UserInputService.InputBegan:Connect(function(input, gp)
 		task.defer(function()
 			if not SearchBox:IsFocused() and SRF.Visible then
 				dismissSearch()
-				SRF.Visible = false
-				clearSRF()
 			end
 		end)
 	end
 end)
 
 -- ============================================================
+-- PROMPT / DIALOG SYSTEM
+-- ============================================================
+-- Shared state — only one prompt open at a time.
+local LG_promptOpen = false
+
+-- Overlay that blocks all interaction while a prompt is visible.
+PromptBlocker = Instance.new("Frame")
+PromptBlocker.Name                    = "PromptBlocker"
+PromptBlocker.Size                    = UDim2.fromScale(1, 1)
+PromptBlocker.BackgroundColor3        = Color3.fromRGB(0, 0, 0)
+PromptBlocker.BackgroundTransparency  = 1   -- fully transparent — clicks still land here
+PromptBlocker.BorderSizePixel         = 0
+PromptBlocker.ZIndex                  = 190  -- above everything except the prompt itself
+PromptBlocker.Visible                 = false
+PromptBlocker.Parent                  = ScreenGui
+-- Eat every input so nothing below responds
+local _pbBtn = Instance.new("TextButton")
+_pbBtn.Size                   = UDim2.fromScale(1, 1)
+_pbBtn.BackgroundTransparency = 1
+_pbBtn.Text                   = ""
+_pbBtn.AutoButtonColor        = false
+_pbBtn.ZIndex                 = 191
+_pbBtn.Parent                 = PromptBlocker
+-- Also disable scrolling on both scroll frames while the prompt is open
+local _pbScrollConn1, _pbScrollConn2
+
+local function lockScrollForPrompt()
+	ContentScroll.ScrollingEnabled = false
+	SBScroll.ScrollingEnabled      = false
+end
+local function unlockScrollForPrompt()
+	ContentScroll.ScrollingEnabled = true
+	SBScroll.ScrollingEnabled      = true
+end
+
+-- Builds a prompt sheet, animates it in, and returns a dismiss function.
+-- opts = { title, body, buttons = { {text,color,callback}, ... } }
+-- where color is "blue", "grey", or "red".
+-- A Cancel button is always appended automatically.
+-- opts.layout:
+--   "stack"  — each button on its own row (multi-option prompt)
+--   "side"   — Cancel on left, action button on right (confirm / warning)
+local TextService = game:GetService("TextService")
+
+-- Measure wrapped text height for a given string, font, size, and max width.
+local function measureTextH(text, font, textSize, maxW)
+	if not text or text == "" then return 0 end
+	local ok, sz = pcall(function()
+		return TextService:GetTextSize(text, textSize, font, Vector2.new(maxW, 9999))
+	end)
+	return ok and sz.Y or textSize
+end
+
+local function showPromptSheet(opts)
+	if LG_promptOpen then return end
+	LG_promptOpen = true
+	if LG_activeColorPickerClose then LG_activeColorPickerClose() end
+
+	-- Block interaction
+	PromptBlocker.Visible = true
+	lockScrollForPrompt()
+
+	local layout = opts.layout or "stack"  -- "stack" | "side"
+
+	-- ── Layout constants ──────────────────────────────────────
+	local SHEET_W    = 300
+	local PADDING    = 20
+	local TEXT_W     = SHEET_W - PADDING * 2
+	local BTN_H      = 40
+	local BTN_GAP    = 8
+	local TITLE_SIZE = 15
+	local BODY_SIZE  = 13
+
+	-- Measure text heights up front — no waiting on AutomaticSize
+	local titleH = measureTextH(opts.title or "", Enum.Font.GothamBold, TITLE_SIZE, TEXT_W)
+	local hasBody = (opts.body or "") ~= ""
+	local bodyH   = hasBody and measureTextH(opts.body, Enum.Font.Gotham, BODY_SIZE, TEXT_W) or 0
+
+	local bodyY      = PADDING + titleH + (hasBody and 8 or 0)
+	local btnsStartY = bodyY + bodyH + (hasBody and 20 or 16)
+
+	-- Calculate total height now
+	local userButtons = opts.buttons or {}
+	local cancelDef   = { text = "Cancel", color = "grey", isCancel = true }
+	local sheetH
+
+	if layout == "side" then
+		sheetH = btnsStartY + BTN_H + PADDING
+	else
+		local allCount = #userButtons + 1  -- +1 for Cancel
+		sheetH = btnsStartY + allCount * BTN_H + (allCount - 1) * BTN_GAP + PADDING
+	end
+
+	-- ── Sheet container ───────────────────────────────────────
+	-- Use a CanvasGroup so all children clip and fade as one unit
+	-- during the spring-in/out, giving a clean grow-from-centre effect.
+	local sheet = Instance.new("CanvasGroup")
+	sheet.Name                   = "PromptSheet"
+	sheet.AnchorPoint            = Vector2.new(0.5, 0.5)
+	sheet.Size                   = UDim2.fromOffset(SHEET_W, sheetH)
+	sheet.BackgroundColor3       = Color3.fromRGB(30, 30, 36)
+	sheet.BackgroundTransparency = 0
+	sheet.GroupTransparency      = 0
+	sheet.BorderSizePixel        = 0
+	sheet.ZIndex                 = 200
+	sheet.ClipsDescendants       = true
+	sheet.Parent                 = ScreenGui
+
+	-- Centre on the content area (right panel, below title bar)
+	local function centreSheet()
+		local s = uiScale.Scale
+		local winPos  = Window.AbsolutePosition
+		local winSize = Window.AbsoluteSize
+		local inset   = GuiService:GetGuiInset()
+		-- Convert screen-space (post-scale) coords into logical units that
+		-- UDim2.fromOffset expects under a UIScale. At s == 1 this is identical
+		-- to the v96 math.
+		local unY      = (winPos.Y + inset.Y)/s
+		local unW      = winSize.X/s
+		local unH      = winSize.Y/s
+		local contentX = winPos.X/s + SIDEBAR_W + 2
+		local contentW = unW - SIDEBAR_W - 2
+		local contentH = unH - 50
+		local centreX  = contentX + contentW * 0.5
+		local centreY  = unY + 50 + contentH * 0.5
+		sheet.Position = UDim2.fromOffset(centreX, centreY)
+	end
+	centreSheet()
+
+	-- Recentre whenever the window is resized (maximize / restore / viewport change)
+	local resizeConn = Window:GetPropertyChangedSignal("Size"):Connect(function()
+		if LG_promptOpen then centreSheet() end
+	end)
+	-- Clean up the connection when the sheet is destroyed
+	sheet.AncestryChanged:Connect(function()
+		if not sheet.Parent then resizeConn:Disconnect() end
+	end)
+
+	-- ── Apply glass OR solid styling depending on current theme ───
+	local isSolid = (LG_theme == "solid")
+
+	if isSolid then
+		-- Solid mode: flat opaque panel, no glass gradients
+		sheet.BackgroundColor3       = Color3.fromRGB(28, 28, 34)
+		sheet.BackgroundTransparency = 0
+		local solidCorner = Instance.new("UICorner")
+		solidCorner.CornerRadius = UDim.new(0, 16)
+		solidCorner.Parent = sheet
+		local solidStroke = Instance.new("UIStroke")
+		solidStroke.Color           = Color3.fromRGB(255, 255, 255)
+		solidStroke.Transparency    = 0.82
+		solidStroke.Thickness       = 1
+		solidStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		solidStroke.Parent          = sheet
+	else
+		-- Glass mode: liquid glass with dense gradient
+		sheet.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+		liquidGlass(sheet, {radius = 16, sheen = true, strokeT = 0.35})
+		local grad = sheet:FindFirstChildWhichIsA("UIGradient")
+		if grad then
+			grad.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0.00, 0.08),
+				NumberSequenceKeypoint.new(0.50, 0.18),
+				NumberSequenceKeypoint.new(1.00, 0.10),
+			})
+		end
+	end
+
+	-- ── Title ─────────────────────────────────────────────────
+	-- All children use Scale-based positions so they expand from
+	-- the sheet centre as the spring-in animation grows the size.
+	local titleLbl = Instance.new("TextLabel")
+	titleLbl.Size                   = UDim2.new(1, -PADDING*2, 0, titleH)
+	titleLbl.Position               = UDim2.new(PADDING/SHEET_W, 0, PADDING/sheetH, 0)
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Text                   = opts.title or ""
+	titleLbl.Font                   = Enum.Font.GothamBold
+	titleLbl.TextSize               = TITLE_SIZE
+	titleLbl.TextColor3             = Color3.fromRGB(255, 255, 255)
+	titleLbl.TextXAlignment         = Enum.TextXAlignment.Center
+	titleLbl.TextWrapped            = true
+	titleLbl.ZIndex                 = 201
+	titleLbl.Parent                 = sheet
+
+	-- ── Body ──────────────────────────────────────────────────
+	if hasBody then
+		local bodyLbl = Instance.new("TextLabel")
+		bodyLbl.Size                    = UDim2.new(1, -PADDING*2, 0, bodyH)
+		bodyLbl.Position                = UDim2.new(PADDING/SHEET_W, 0, bodyY/sheetH, 0)
+		bodyLbl.BackgroundTransparency  = 1
+		bodyLbl.Text                    = opts.body
+		bodyLbl.Font                    = Enum.Font.Gotham
+		bodyLbl.TextSize                = BODY_SIZE
+		bodyLbl.TextColor3              = Color3.fromRGB(185, 185, 200)
+		bodyLbl.TextXAlignment          = Enum.TextXAlignment.Center
+		bodyLbl.TextWrapped             = true
+		bodyLbl.ZIndex                  = 201
+		bodyLbl.Parent                  = sheet
+	end
+
+	-- ── Dismiss helper ────────────────────────────────────────
+	local function dismiss()
+		if not LG_promptOpen then return end
+		LG_promptOpen = false
+		PromptBlocker.Visible = false
+		unlockScrollForPrompt()
+		tween(sheet, 0.12, {GroupTransparency = 1})
+		TweenService:Create(sheet,
+			TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+			{Size = UDim2.fromOffset(0, 0)}):Play()
+		task.delay(0.32, function() sheet:Destroy() end)
+	end
+
+	-- ── Button builder — position is UDim2 scale-based ───────
+	local function makeBtn(bDef, scalePos, scaleSize)
+		local btn = Instance.new("TextButton")
+		btn.Size            = scaleSize
+		btn.Position        = scalePos
+		btn.BorderSizePixel = 0
+		btn.AutoButtonColor = false
+		btn.Text            = bDef.text or "OK"
+		btn.Font            = Enum.Font.GothamSemibold
+		btn.TextSize        = 14
+		btn.ZIndex          = 202
+		btn.Parent          = sheet
+
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+
+		local col = bDef.color or "grey"
+		local baseT = 0
+
+		if col == "blue" then
+			btn.BackgroundColor3       = Color3.fromRGB(1, 109, 238)
+			btn.BackgroundTransparency = 0
+			btn.TextColor3             = Color3.fromRGB(255, 255, 255)
+			if not isSolid then
+				liquidGlass(btn, {radius = 10, sheen = true, strokeT = 0.45})
+				local g = btn:FindFirstChildWhichIsA("UIGradient")
+				if g then g.Enabled = false end
+			end
+		elseif col == "red" then
+			btn.BackgroundColor3       = Color3.fromRGB(0xe7, 0xb5, 0xb3)  -- #E7B5B3
+			btn.BackgroundTransparency = 0
+			btn.TextColor3             = Color3.fromRGB(0xc4, 0x0c, 0x17)  -- #C40C17
+			if not isSolid then
+				liquidGlass(btn, {radius = 10, sheen = false, strokeT = 0.40})
+				local g = btn:FindFirstChildWhichIsA("UIGradient")
+				if g then g.Enabled = false end
+				local st = btn:FindFirstChildWhichIsA("UIStroke")
+				if st then st.Color = Color3.fromRGB(0xc4, 0x0c, 0x17) end
+			end
+		else -- grey / cancel
+			btn.BackgroundColor3       = isSolid and Color3.fromRGB(50, 50, 58) or Color3.fromRGB(72, 72, 82)
+			btn.BackgroundTransparency = 0
+			btn.TextColor3             = Color3.fromRGB(255, 255, 255)
+			if not isSolid then
+				liquidGlass(btn, {radius = 10, sheen = true, strokeT = 0.55})
+				local g = btn:FindFirstChildWhichIsA("UIGradient")
+				if g then g.Enabled = false end
+			end
+		end
+
+		if isSolid then
+			local sc = Instance.new("UIStroke")
+			sc.Color           = Color3.fromRGB(255, 255, 255)
+			sc.Transparency    = 0.85
+			sc.Thickness       = 1
+			sc.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			sc.Parent          = btn
+		end
+
+		local baseBg = btn.BackgroundColor3
+		btn.MouseEnter:Connect(function()
+			tween(btn, 0.10, {BackgroundColor3 = baseBg:Lerp(Color3.new(1,1,1), 0.10)})
+		end)
+		btn.MouseLeave:Connect(function()
+			tween(btn, 0.10, {BackgroundColor3 = baseBg})
+		end)
+		btn.MouseButton1Click:Connect(function()
+			-- Press uses scale size so the shrink is proportional
+			local sw = scaleSize.X.Scale; local so = scaleSize.X.Offset
+			local sh = scaleSize.Y.Scale; local sho = scaleSize.Y.Offset
+			tween(btn, 0.07, {Size = UDim2.new(sw, so - 5, sh, sho - 3)}, Enum.EasingStyle.Quad)
+			task.delay(0.07, function()
+				tween(btn, 0.22, {Size = scaleSize}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+			end)
+			dismiss()
+			if not bDef.isCancel and bDef.callback then
+				task.defer(bDef.callback)
+			end
+		end)
+
+		return btn
+	end
+
+	-- ── Place buttons (Scale positions so they expand from centre) ──
+	local padSX  = PADDING / SHEET_W
+	local textSW = TEXT_W / SHEET_W
+
+	if layout == "side" then
+		local halfW   = (TEXT_W - BTN_GAP) / 2
+		local btnSW   = halfW / SHEET_W
+		local btnSH   = BTN_H / sheetH
+		local btnSY   = btnsStartY / sheetH
+		local gapSX   = BTN_GAP / SHEET_W
+
+		makeBtn(cancelDef,
+			UDim2.new(padSX, 0, btnSY, 0),
+			UDim2.new(btnSW, 0, btnSH, 0))
+
+		if userButtons[1] then
+			makeBtn(userButtons[1],
+				UDim2.new(padSX + btnSW + gapSX, 0, btnSY, 0),
+				UDim2.new(btnSW, 0, btnSH, 0))
+		end
+	else
+		local allBtns = {}
+		for _, b in ipairs(userButtons) do table.insert(allBtns, b) end
+		table.insert(allBtns, cancelDef)
+
+		for i, bDef in ipairs(allBtns) do
+			local btnY  = btnsStartY + (i - 1) * (BTN_H + BTN_GAP)
+			local btnSY = btnY / sheetH
+			local btnSH = BTN_H / sheetH
+			makeBtn(bDef,
+				UDim2.new(padSX, 0, btnSY, 0),
+				UDim2.new(textSW, 0, btnSH, 0))
+		end
+	end
+
+	-- ── Spring-in from centre ─────────────────────────────────
+	-- Position is already set by centreSheet() above.
+	-- Reset size to zero (AnchorPoint 0.5,0.5 keeps the centre fixed),
+	-- then spring to full size. GroupTransparency fades the whole sheet in.
+	sheet.GroupTransparency = 1
+	sheet.Size              = UDim2.fromOffset(0, 0)
+	tween(sheet, 0.06, {GroupTransparency = 0})
+	TweenService:Create(sheet,
+		TweenInfo.new(0.48, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{Size = UDim2.fromOffset(SHEET_W, sheetH)}):Play()
+end
+
+-- ── Theme integration ────────────────────────────────────────
+-- When the theme toggles between glass/solid the prompt sheet
+-- (if open) updates its background to match. We hook into the
+-- DescendantAdded pipeline already used by applyTheme by simply
+-- parenting the sheet to ScreenGui (outside Window) and applying
+-- colours manually. Since the sheet uses fully opaque solid
+-- colours in both themes there is no gradient/transparency
+-- complexity — solid mode just darkens the panel slightly.
+
+-- ── Public wrappers ──────────────────────────────────────────
+-- These are attached to LiquidGlass after the public API table
+-- is created further below.
+
+-- ============================================================
 -- PUBLIC API
 -- ============================================================
 local LiquidGlass = {}
+
+-- ============================================================
+-- THEME SYSTEM
+-- ============================================================
+-- Currently supported themes:
+--   "glass"           — original translucent look (default)
+--   "solid"   — deep near-black solid look matching the Dynamic Island
+--
+-- Developer API:
+--   LiquidGlass:SetTheme("solid")   -- change theme at runtime
+--   LiquidGlass:GetTheme()                  -- returns current theme name
+--   LiquidGlass:LockTheme(true)             -- override: blocks future SetTheme calls
+--   LiquidGlass:SetConfig({ theme="solid", lockTheme=true })
+-- ============================================================
+
+local LG_themeLocked = false
+
+-- Snapshot of every element's original transparency so we can restore the glass look.
+local LG_themeSnap = { bgT={}, bgC={}, strT={}, taken=false }
+
+-- Layered solid palette — matches the macOS Tahoe dark reference.
+-- Window/sidebar sit at the base shade, cards are one step lighter so they
+-- read as distinct panels, and the whole UI stays readable instead of flat.
+local SOLID_BASE = Color3.fromRGB(22, 22, 28)  -- window, sidebar, title bar
+local SOLID_CARD = Color3.fromRGB(32, 32, 38)  -- cards, rows, dropdowns, buttons
+
+-- Returns the solid-mode colour for a snapshotted element. Preserves the
+-- lighter/darker layering from the original palette instead of flattening
+-- everything to a single shade.
+local function solidColorFor(origC)
+	if not origC then return SOLID_BASE end
+	-- T.cardBg is the lightest neutral in the theme; anything close to it
+	-- or lighter maps to SOLID_CARD so cards stay visually distinct.
+	local avg = (origC.R + origC.G + origC.B) / 3
+	if avg >= 0.22 then
+		return SOLID_CARD
+	end
+	return SOLID_BASE
+end
+
+-- True if a colour is a neutral grey (low saturation, not too bright). These
+-- get recoloured to SOLID_BASE in solid mode. Accent colours (toggle greens,
+-- slider blues, selection highlights) pass through unchanged.
+local function isNeutralGrey(c)
+	if not c then return false end
+	local r, g, b = c.R, c.G, c.B
+	local maxC = math.max(r, g, b)
+	local minC = math.min(r, g, b)
+	return (maxC - minC) < 0.08 and maxC < 0.55
+end
+
+-- Classify a single element's target state in solid mode. Returns (targetT, targetC).
+-- Shared by applyTheme and the DescendantAdded hook so new controls built by
+-- tab switches get the exact same treatment as controls present at snapshot time.
+local function classifySolid(inst, origT, origC)
+	-- 1. Fully transparent layout frames stay invisible
+	if origT >= 1 then return 1, origC end
+	local whiteC = (origC.R > 0.9 and origC.G > 0.9 and origC.B > 0.9)
+	-- 2. Opaque white elements (slider knobs) stay exactly as they were
+	if whiteC and origT < 0.05 then return origT, origC end
+	-- 3. Thin white lines (dividers, 1-2px tall) stay visible as subtle separators
+	if whiteC and inst:IsA("Frame") and inst.AbsoluteSize.Y <= 2 then
+		return 0.85, origC
+	end
+	-- 4. Other translucent white overlays (sheens, card highlights, search bar) hide
+	if whiteC then return 1, origC end
+	-- 5. Neutral grey backgrounds use the layered solid palette
+	if isNeutralGrey(origC) then return 0, solidColorFor(origC) end
+	-- 6. Accent colours keep their colour AND original transparency
+	return origT, origC
+end
+
+local function takeThemeSnapshot()
+	if LG_themeSnap.taken then return end
+	LG_themeSnap.taken = true
+	for _, d in ipairs(Window:GetDescendants()) do
+		if d:IsA("GuiObject") and not d:IsA("TextButton") and d.Name ~= "SidebarTabBg" then
+			LG_themeSnap.bgT[d] = d.BackgroundTransparency
+			LG_themeSnap.bgC[d] = d.BackgroundColor3
+		elseif d:IsA("UIStroke") then
+			LG_themeSnap.strT[d] = d.Transparency
+		end
+	end
+	LG_themeSnap.bgT[Window]   = Window.BackgroundTransparency;   LG_themeSnap.bgC[Window]   = Window.BackgroundColor3
+	LG_themeSnap.bgT[TitleBar] = TitleBar.BackgroundTransparency; LG_themeSnap.bgC[TitleBar] = TitleBar.BackgroundColor3
+	LG_themeSnap.bgT[Sidebar]  = Sidebar.BackgroundTransparency;  LG_themeSnap.bgC[Sidebar]  = Sidebar.BackgroundColor3
+	Window.DescendantAdded:Connect(function(d)
+		if d:IsA("GuiObject") and not d:IsA("TextButton") and d.Name ~= "SidebarTabBg" and LG_themeSnap.bgT[d] == nil then
+			-- Wait one frame so AbsoluteSize is valid (needed for divider detection)
+			task.defer(function()
+				if not d.Parent then return end
+				LG_themeSnap.bgT[d] = d.BackgroundTransparency
+				LG_themeSnap.bgC[d] = d.BackgroundColor3
+				if LG_theme == "solid" then
+					local tT, tC = classifySolid(d, d.BackgroundTransparency, d.BackgroundColor3)
+					d.BackgroundTransparency = tT
+					d.BackgroundColor3 = tC
+				end
+			end)
+		elseif d:IsA("UIStroke") and LG_themeSnap.strT[d] == nil then
+			LG_themeSnap.strT[d] = d.Transparency
+		end
+	end)
+end
+
+-- Solid theme flattens every semi-transparent element to solid,
+-- preserving each element's original colour exactly.
+
+applyTheme = function(themeName, animated)
+	takeThemeSnapshot()
+	LG_theme = themeName
+
+	local goingSolid = (themeName == "solid")
+
+	-- Apply all snapshotted elements. onlyWhite=true applies only white/sheen frames,
+	-- onlyWhite=false applies only non-white frames, onlyWhite=nil applies all.
+	local function applyElements(onlyWhite)
+		for inst, origT in pairs(LG_themeSnap.bgT) do
+			if inst and inst.Parent and inst.Name ~= "TabFadeOverlay" then
+				local origC = LG_themeSnap.bgC[inst]
+				local isWhite = (origC.R > 0.9 and origC.G > 0.9 and origC.B > 0.9)
+				if onlyWhite == true  and not isWhite then -- skip non-white
+				elseif onlyWhite == false and isWhite then -- skip white
+				else
+					local targetT, targetC
+					if goingSolid then
+						targetT, targetC = classifySolid(inst, origT, origC)
+					else
+						targetT = origT
+						targetC = origC
+					end
+					if animated then
+						tween(inst, 0.35, {BackgroundTransparency = targetT, BackgroundColor3 = targetC}, Enum.EasingStyle.Quad)
+					else
+						inst.BackgroundTransparency = targetT
+						inst.BackgroundColor3 = targetC
+					end
+				end
+			end
+		end
+		for stroke, origT in pairs(LG_themeSnap.strT) do
+			if stroke and stroke.Parent then
+				if animated then
+					tween(stroke, 0.35, {Transparency = origT}, Enum.EasingStyle.Quad)
+				else
+					stroke.Transparency = origT
+				end
+			end
+		end
+	end
+
+	if not animated then
+		WindowBackdrop.BackgroundTransparency = goingSolid and 0 or 1
+		for _, d in ipairs(Window:GetDescendants()) do
+			if d:IsA("UIGradient") then d.Enabled = not goingSolid end
+		end
+		applyElements(nil)
+		return
+	end
+
+	if goingSolid then
+		-- GLASS -> SOLID
+		-- 1. Fade backdrop in
+		tween(WindowBackdrop, 0.35, {BackgroundTransparency = 0}, Enum.EasingStyle.Quad)
+		-- 2. Tween all elements to solid (white sheens go fully transparent)
+		applyElements(nil)
+		-- 3. Disable gradients after backgrounds have darkened enough
+		task.delay(0.18, function()
+			for _, d in ipairs(Window:GetDescendants()) do
+				if d:IsA("UIGradient") then d.Enabled = false end
+			end
+		end)
+	else
+		-- SOLID -> GLASS
+		-- 1. Tween non-white elements to glass transparencies first
+		applyElements(false)
+		-- 2. Fade backdrop out simultaneously
+		tween(WindowBackdrop, 0.35, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad)
+		-- 3. Re-enable gradients once non-white frames are partway through fading
+		task.delay(0.15, function()
+			for _, d in ipairs(Window:GetDescendants()) do
+				if d:IsA("UIGradient") then d.Enabled = true end
+			end
+		end)
+		-- 4. Restore white/sheen frames last, once backdrop is nearly gone
+		task.delay(0.22, function()
+			applyElements(true)
+		end)
+	end
+end
+
+function LiquidGlass:SetTheme(themeName)
+	if LG_themeLocked then return false end
+	if themeName ~= "glass" and themeName ~= "solid" then return false end
+	applyTheme(themeName, true)
+	return true
+end
+
+function LiquidGlass:GetTheme() return LG_theme end
+
+function LiquidGlass:LockTheme(locked)
+	LG_themeLocked = locked and true or false
+end
 LiquidGlass.__index = LiquidGlass
 
 -- Section handle
@@ -1667,6 +4310,16 @@ function Section:AddInfo(label, value)
 	return proxy
 end
 
+function Section:AddLabel(text)
+	local ctrl={type="label",text=tostring(text),_handle=nil}
+	table.insert(self._controls,ctrl)
+	local proxy=setmetatable({},{
+		__index=function(_,k) return ctrl._handle and ctrl._handle[k] end,
+		__newindex=function() end
+	})
+	return proxy
+end
+
 function Section:AddDropdown(label, options, defaultIndex, callback)
 	local ctrl={type="dropdown",label=label,options=options,default=defaultIndex or 1,callback=callback,_handle=nil}
 	table.insert(self._controls,ctrl)
@@ -1681,6 +4334,16 @@ function Section:AddButton(label, btnText, callback)
 	local ctrl={type="button",label=label,btnText=btnText or "Action",callback=callback,_handle=nil}
 	table.insert(self._controls,ctrl)
 	return {}
+end
+
+function Section:AddColorPicker(label, defaultColor, callback)
+	local ctrl={type="colorpicker",label=label,defaultColor=defaultColor or Color3.fromRGB(1,109,238),defaultAlpha=1,callback=callback,_handle=nil}
+	table.insert(self._controls,ctrl)
+	local proxy=setmetatable({},{
+		__index=function(_,k) return ctrl._handle and ctrl._handle[k] end,
+		__newindex=function() end
+	})
+	return proxy
 end
 
 -- Tab handle
@@ -1709,8 +4372,19 @@ function LiquidGlass:SetConfig(opts)
 	if opts.accentColor then
 		T.activeItem=opts.accentColor; T.sliderFill=opts.accentColor; T.blue=opts.accentColor
 	end
-	if opts.windowAlpha then Window.BackgroundTransparency=opts.windowAlpha end
+	if opts.windowAlpha then
+		ALPHA_WINDOW = opts.windowAlpha
+		Window.BackgroundTransparency = opts.windowAlpha
+	end
+	-- Theme: "glass" (default) or "solid". lockTheme prevents later SetTheme calls.
+	if opts.theme then
+		applyTheme(opts.theme, false)
+	end
+	if opts.lockTheme then
+		LG_themeLocked = true
+	end
 end
+
 
 function LiquidGlass:AddTab(tabName, iconName, subText)
 	table.insert(LG_tabs, tabName)
@@ -1765,6 +4439,60 @@ end
 
 function LiquidGlass:NotifyWarning(label, value)
 	notify("warning", label, value)
+end
+
+-- ── NotifySlider ─────────────────────────────────────────────
+-- Fire a slider-style Dynamic Island notification with a filled
+-- progress bar. Use this when setting a slider value from code
+-- (e.g. a button that sets volume to 80%).
+--   label  string   Text shown in the island
+--   pct    number   0.0 – 1.0  fill amount for the progress bar
+function LiquidGlass:NotifySlider(label, pct)
+	pct = math.clamp(pct or 0, 0, 1)
+	-- Open / update the island via the same path the drag handler uses,
+	-- so the progress bar is populated correctly.
+	diTrackSlider(label, pct, "slider", math.round(pct * 100) .. "%")
+end
+
+-- ── ShowMultiPrompt ──────────────────────────────────────────
+-- opts: { title, body, buttons = { {text, color="blue"|"grey", callback?}, ... } }
+-- A Cancel button is always added automatically at the bottom.
+-- Each button gets its own full-width row (stacked layout).
+function LiquidGlass:ShowMultiPrompt(opts)
+	showPromptSheet({
+		title   = opts.title   or "",
+		body    = opts.body    or "",
+		buttons = opts.buttons or {},
+		layout  = "stack",
+	})
+end
+
+-- ── ShowConfirmPrompt ────────────────────────────────────────
+-- opts: { title, body, confirmText?, onConfirm? }
+-- Cancel on the left, blue confirm button on the right.
+function LiquidGlass:ShowConfirmPrompt(opts)
+	showPromptSheet({
+		title   = opts.title or "",
+		body    = opts.body  or "",
+		buttons = {
+			{ text = opts.confirmText or "OK", color = "blue", callback = opts.onConfirm },
+		},
+		layout  = "side",
+	})
+end
+
+-- ── ShowWarningPrompt ────────────────────────────────────────
+-- opts: { title, body, confirmText?, onConfirm? }
+-- Cancel on the left, red confirm button on the right.
+function LiquidGlass:ShowWarningPrompt(opts)
+	showPromptSheet({
+		title   = opts.title or "",
+		body    = opts.body  or "",
+		buttons = {
+			{ text = opts.confirmText or "Delete", color = "red", callback = opts.onConfirm },
+		},
+		layout  = "side",
+	})
 end
 
 function LiquidGlass:AutoNotif(ctrlType, label, value)
@@ -1886,7 +4614,6 @@ local function setGlowColor(col)
 end
 
 local function doIntro()
-	local w,h = getWinSize()
 	Window.Size               = UDim2.fromOffset(0,0)
 	Window.BackgroundTransparency = 1
 	Shadow.ImageTransparency  = 1
@@ -1924,7 +4651,22 @@ local function doIntro()
 		{BackgroundColor3=GLOW_COLORS[1]}):Play()
 	task.wait(cycleTime * 0.5)
 
-	-- Phase 3: window springs open while glow fades out simultaneously
+	-- Phase 3: window + dot spring into existence simultaneously
+	-- Recompute w, h, pos NOW (not at the top of doIntro). Mobile viewports
+	-- settle over the first few frames; computing at entry captures stale
+	-- values that cause the window to spring to the wrong size.
+	updateScale()
+	local w, h = getWinSize()
+	local pos  = getRestPosition()
+	Window.Position = pos
+	Shadow.Position = pos
+	Shadow.Size     = UDim2.fromOffset(w+80, h+80)
+	-- Make everything visible now — they were hidden at creation so nothing
+	-- showed through during the glow animation above.
+	Window.Visible  = true
+	Shadow.Visible  = true
+	Overlay.Visible = true
+	tween(DI_Frame, 0.5, {BackgroundTransparency=0})  -- dot morphs in with the UI
 	tween(Overlay, 0.5, {BackgroundTransparency=0.15})
 	tween(Shadow,  0.5, {ImageTransparency=0.45})
 	tween(Window,  0.5, {BackgroundTransparency=0.18})
@@ -1955,7 +4697,7 @@ end
 -- Profile name/avatar are auto-set from LocalPlayer.
 -- Use SetConfig to override anything.
 LiquidGlass:SetConfig({
-	title      = "System Settings",
+	title      = "Mac-Ui-Library",
 	-- profileName = "Custom Name",
 	-- profileSub  = "Custom subtitle",
 	-- accentColor = Color3.fromRGB(255, 80, 120),
@@ -1972,16 +4714,18 @@ local toggleSec = demo:AddSection("Toggles")
 -- No notification — just a plain toggle
 toggleSec:AddToggle("Simple toggle", true)
 
+-- Solid theme demo — flips the whole UI between glass and DI look
+toggleSec:AddToggle("Solid theme", false, function(on)
+	LiquidGlass:SetTheme(on and "solid" or "glass")
+	LiquidGlass:Notify("Theme", on and "Solid" or "Glass")
+end)
+
 -- Opt in with LiquidGlass.Notif.Toggle — auto-formats "On"/"Off" badge
 toggleSec:AddToggle("Notify on change", off, LiquidGlass.Notif.Toggle("Notify on change"))
 
 -- Or write a custom callback and call Notify yourself
 local trackedToggle = toggleSec:AddToggle("Custom callback", false, function(on)
-	if on then
-		LiquidGlass:Notify("Feature enabled", "On")
-	else
-		LiquidGlass:NotifyWarning("Feature disabled", "Off")
-	end
+	LiquidGlass:Notify(on and "Feature enabled" or "Feature disabled", on and "On" or "Off")
 end)
 
 -- ── Sliders ───────────────────────────────────────────────────
@@ -1992,23 +4736,23 @@ sliderSec:AddSlider("Simple slider", 0.5)
 
 -- Same as the one below just without an additonal notification
 sliderSec:AddSlider("is test (testing?)", 0.05, function(v)
-	if v > 1 then -- just keep this always at 1 for the dynamic islands bar to function
-		LiquidGlass:Notify("Working test", math.round(v*100).."%")
-	end
+	LiquidGlass:Notify("Working test", math.round(v*100).."%", "slider")
 end)
 
 -- Custom callback — fire warning only above a threshold
 sliderSec:AddSlider("Threshold (warning above 80%)", 0.3, function(v)
 	if v > 0.8 then
 		LiquidGlass:NotifyWarning("High threshold", math.round(v*100).."%")
+	else
+		LiquidGlass:Notify("Threshold", math.round(v*100).."%", "slider")
 	end
 end)
 
 sliderSec:AddSlider("your cortisol", 0, function(v)
-	if v > 1 then
-		LiquidGlass:Notify("cortisol level is alright", math.round(v*100).."%")
-  elseif v > 0.9 then
-    LiquidGlass:NotifyWarning("corrisol level too high", math.round(v*100).."%") 
+	if v > 0.9 then
+		LiquidGlass:NotifyWarning("cortisol level too high", math.round(v*100).."%")
+	else
+		LiquidGlass:Notify("cortisol level is alright", math.round(v*100).."%", "slider")
 	end
 end)
 
@@ -2033,6 +4777,7 @@ local infoSec = demo:AddSection("Info")
 local versionInfo = infoSec:AddInfo("Version", "1.0.0")
 infoSec:AddInfo("Status", "Connected")
 infoSec:AddInfo("Player", Players.LocalPlayer.Name)
+infoSec:AddLabel("Labels display freeform text — no button, no chevron. Useful for hints or descriptions inside a card.")
 
 -- ── Buttons ───────────────────────────────────────────────────
 local btnSec = demo:AddSection("Buttons")
@@ -2068,8 +4813,52 @@ btnSec:AddButton("Flip toggle via code", "Flip", function()
 end)
 
 btnSec:AddButton("Set slider to 80%", "Set", function()
-	volSlider:SetValue(0.8)
-	LiquidGlass:Notify("Volume set", "80%", "slider")
+	LiquidGlass:Notify("Volume", "80%", "slider")
+end)
+
+-- ── Color Picker ──────────────────────────────────────────────
+local colorSec = demo:AddSection("Color Picker")
+
+colorSec:AddColorPicker("Accent Color", Color3.fromRGB(1, 109, 238), function(col, alpha)
+	LiquidGlass:Notify(
+		"Accent Color",
+		string.format("#%02X%02X%02X", math.round(col.R*255), math.round(col.G*255), math.round(col.B*255))
+	)
+end)
+
+colorSec:AddColorPicker("Background Tint", Color3.fromRGB(120, 60, 200))
+local promptSec = demo:AddSection("Prompts")
+
+-- Multi-option prompt (like the Spotify quit dialog)
+promptSec:AddButton("Multi-option prompt", "Open", function()
+	LiquidGlass:ShowMultiPrompt({
+		title   = "Are you sure you want to quit this process?",
+		body    = 'Do you really want to quit "Spotify"?',
+		buttons = {
+			{ text = "Quit",       color = "blue", callback = function() LiquidGlass:Notify("Process quit", "Done") end },
+			{ text = "Force Quit", color = "grey",  callback = function() LiquidGlass:NotifyWarning("Force quit", "Done") end },
+		},
+	})
+end)
+
+-- Confirmation prompt (like the Trash auto-empty dialog)
+promptSec:AddButton("Confirmation prompt", "Open", function()
+	LiquidGlass:ShowConfirmPrompt({
+		title       = "Are you sure you want to empty Trash automatically?",
+		body        = "Items left in the Trash for more than 30 days will be automatically erased. You can change this setting later in Finder Settings > Advanced.",
+		confirmText = "Turn On",
+		onConfirm   = function() LiquidGlass:Notify("Auto-empty", "Enabled") end,
+	})
+end)
+
+-- Warning / destructive prompt (like the Spotlight history delete dialog)
+promptSec:AddButton("Warning prompt", "Open", function()
+	LiquidGlass:ShowWarningPrompt({
+		title       = "Delete Spotlight Search History",
+		body        = "All history associated with Spotlight Search will be deleted.",
+		confirmText = "Delete",
+		onConfirm   = function() LiquidGlass:NotifyError("History deleted", "Done") end,
+	})
 end)
 
 
@@ -2078,16 +4867,13 @@ end)
 -- BOOT — do not remove
 -- ============================================================
 task.defer(doIntro)
-print("[LiquidGlass UI Library] Loaded ✓")
+print("[Mac-Ui-Library] Loaded ✓")
 
 
 
-local Test = LiquidGlass:AddTab("Test")
+local Test = LiquidGlass:AddTab("Test1")
 local buttonSec = Test:AddSection("Testing")
-buttonSec:AddButton("Hihhh", "tuttt", function()
-LiquidGlass:Notify("Test slider", "loading", "sliding")
-LiquidGlass:NotifyWarning("Warning", "29%", "heyyy")
-end)
+buttonSec:AddButton("Hihhh", "tuttt", LiquidGlass.Notif.Button("Hihhh"))
 
 
 buttonSec:AddSlider("low cortisol", 0, function(v)
@@ -2099,3 +4885,15 @@ buttonSec:AddSlider("low cortisol", 0, function(v)
 end)
 
 
+
+
+local Poop = LiquidGlass:AddTab("poopy")
+local poopSec = Poop:AddSection("poopypants")
+poopSec:AddButton("Poop?", "Poop now")
+poopSec:AddSlider("lolllloopsosls", 1, function(v)
+  if v > 1 then 
+    LiquidGlass:NotifyError("did you poop right", math.round(v*100).."%", "slider")
+  elseif v < 0.2 then
+    LiquidGlass:Notify("never mind", math.round(v*100).."%", "slider")
+  end
+end)
