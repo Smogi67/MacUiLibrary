@@ -4693,6 +4693,7 @@ end
 -- Edit ONLY below this line. The library code above does not need to be changed.
 -- ============================================================
 
+do -- USER CONFIG BLOCK (do...end keeps locals out of the top-level register pool)
 -- ── Window & profile config ──────────────────────────────────
 -- Profile name/avatar are auto-set from LocalPlayer.
 -- Use SetConfig to override anything.
@@ -4897,3 +4898,5 @@ poopSec:AddSlider("lolllloopsosls", 1, function(v)
     LiquidGlass:Notify("never mind", math.round(v*100).."%", "slider")
   end
 end)
+
+end -- USER CONFIG BLOCK
