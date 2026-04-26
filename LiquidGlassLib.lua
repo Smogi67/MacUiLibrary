@@ -435,7 +435,7 @@ local player    = Players.LocalPlayer
 -- exists in CoreGui, compare versions and destroy the older one.
 -- If this script IS the older one, destroy self and stop executing.
 -- ============================================================
-local LG_VERSION = 103  -- bump this integer to force newer instance to win
+local LG_VERSION = 105  -- bump this integer to force newer instance to win
 
 do
 	local existing = gui:FindFirstChild("LiquidGlassUI")
@@ -757,39 +757,45 @@ end)
 
 -- ============================================================
 -- TITLE BAR
+-- (construction wrapped in do..end so transient locals like TBMask,
+--  tColors, tIcons free their registers after setup)
 -- ============================================================
-local TitleBar = Instance.new("Frame")
-TitleBar.Size=UDim2.new(1,0,0,50); TitleBar.BackgroundColor3=T.sidebarBg
-TitleBar.BackgroundTransparency=0.25; TitleBar.BorderSizePixel=0; TitleBar.ZIndex=14; TitleBar.Parent=Window
-liquidGlass(TitleBar,{radius=18,sheen=true,strokeT=0.7})
-local TBMask=Instance.new("Frame"); TBMask.Size=UDim2.new(1,0,0,18)
-TBMask.Position=UDim2.new(0,0,1,-18); TBMask.BackgroundColor3=T.sidebarBg
-TBMask.BackgroundTransparency=1; TBMask.BorderSizePixel=0; TBMask.ZIndex=14; TBMask.Parent=TitleBar
+local TitleBar
+local TitleLbl
+local trafficButtons = {}
+do
+	TitleBar = Instance.new("Frame")
+	TitleBar.Size=UDim2.new(1,0,0,50); TitleBar.BackgroundColor3=T.sidebarBg
+	TitleBar.BackgroundTransparency=0.25; TitleBar.BorderSizePixel=0; TitleBar.ZIndex=14; TitleBar.Parent=Window
+	liquidGlass(TitleBar,{radius=18,sheen=true,strokeT=0.7})
+	local TBMask=Instance.new("Frame"); TBMask.Size=UDim2.new(1,0,0,18)
+	TBMask.Position=UDim2.new(0,0,1,-18); TBMask.BackgroundColor3=T.sidebarBg
+	TBMask.BackgroundTransparency=1; TBMask.BorderSizePixel=0; TBMask.ZIndex=14; TBMask.Parent=TitleBar
 
-local TitleLbl=Instance.new("TextLabel"); TitleLbl.Size=UDim2.fromScale(1,1)
-TitleLbl.BackgroundTransparency=1; TitleLbl.Text="Mac-Ui-Library"
-TitleLbl.Font=Enum.Font.GothamBold; TitleLbl.TextSize=14
-TitleLbl.TextColor3=T.textPrimary; TitleLbl.ZIndex=16; TitleLbl.Parent=TitleBar
+	TitleLbl=Instance.new("TextLabel"); TitleLbl.Size=UDim2.fromScale(1,1)
+	TitleLbl.BackgroundTransparency=1; TitleLbl.Text="Mac-Ui-Library"
+	TitleLbl.Font=Enum.Font.GothamBold; TitleLbl.TextSize=14
+	TitleLbl.TextColor3=T.textPrimary; TitleLbl.ZIndex=16; TitleLbl.Parent=TitleBar
 
--- Traffic lights
-local tColors={Color3.fromRGB(255,105,97),Color3.fromRGB(255,189,68),Color3.fromRGB(85,220,95)}
-local tIcons={"×","−","+"}
-local trafficButtons={}
-for i,col in ipairs(tColors) do
-	local b=Instance.new("TextButton")
-	b.Size=UDim2.fromOffset(14,14); b.Position=UDim2.fromOffset(14+(i-1)*22,18)
-	b.BackgroundColor3=col; b.BorderSizePixel=0; b.AutoButtonColor=false
-	b.Text=""; b.Font=Enum.Font.GothamBold; b.TextSize=10
-	b.TextColor3=Color3.fromRGB(60,30,10); b.ZIndex=16; b.Parent=TitleBar
-	Instance.new("UICorner",b).CornerRadius=UDim.new(1,0)
-	-- Subtle top highlight only — keep them vivid
-	local hl=Instance.new("UIGradient"); hl.Rotation=90
-	hl.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(230,230,230))})
-	hl.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.55),NumberSequenceKeypoint.new(1,1)}); hl.Parent=b
-	local s=Instance.new("UIStroke"); s.Color=Color3.new(0,0,0); s.Transparency=0.88; s.Thickness=0.5; s.Parent=b
-	trafficButtons[i]=b
-	b.MouseEnter:Connect(function() b.Text=tIcons[i] end)
-	b.MouseLeave:Connect(function() b.Text="" end)
+	-- Traffic lights
+	local tColors={Color3.fromRGB(255,105,97),Color3.fromRGB(255,189,68),Color3.fromRGB(85,220,95)}
+	local tIcons={"×","−","+"}
+	for i,col in ipairs(tColors) do
+		local b=Instance.new("TextButton")
+		b.Size=UDim2.fromOffset(14,14); b.Position=UDim2.fromOffset(14+(i-1)*22,18)
+		b.BackgroundColor3=col; b.BorderSizePixel=0; b.AutoButtonColor=false
+		b.Text=""; b.Font=Enum.Font.GothamBold; b.TextSize=10
+		b.TextColor3=Color3.fromRGB(60,30,10); b.ZIndex=16; b.Parent=TitleBar
+		Instance.new("UICorner",b).CornerRadius=UDim.new(1,0)
+		-- Subtle top highlight only — keep them vivid
+		local hl=Instance.new("UIGradient"); hl.Rotation=90
+		hl.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(230,230,230))})
+		hl.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.55),NumberSequenceKeypoint.new(1,1)}); hl.Parent=b
+		local s=Instance.new("UIStroke"); s.Color=Color3.new(0,0,0); s.Transparency=0.88; s.Thickness=0.5; s.Parent=b
+		trafficButtons[i]=b
+		b.MouseEnter:Connect(function() b.Text=tIcons[i] end)
+		b.MouseLeave:Connect(function() b.Text="" end)
+	end
 end
 
 -- Close
@@ -1061,7 +1067,7 @@ local AvatarImg=Instance.new("ImageLabel"); AvatarImg.Size=UDim2.fromScale(1,1)
 AvatarImg.BackgroundTransparency=1; AvatarImg.Image=""; AvatarImg.ScaleType=Enum.ScaleType.Fit
 AvatarImg.ZIndex=18; AvatarImg.Visible=false; AvatarImg.Parent=Avatar
 -- White ring border on top of image
-do local avStroke=Instance.new("UIStroke"); avStroke.Color=Color3.fromRGB(255,255,255); avStroke.Transparency=0.6; avStroke.Thickness=1; avStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; avStroke.Parent=Avatar end
+local avStroke=Instance.new("UIStroke"); avStroke.Color=Color3.fromRGB(255,255,255); avStroke.Transparency=0.6; avStroke.Thickness=1; avStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; avStroke.Parent=Avatar
 
 local ProfName=Instance.new("TextLabel"); ProfName.Size=UDim2.new(1,-62,0,20); ProfName.Position=UDim2.fromOffset(58,12)
 ProfName.BackgroundTransparency=1; ProfName.Text=player.DisplayName; ProfName.Font=Enum.Font.GothamBold; ProfName.TextSize=14
@@ -1096,8 +1102,8 @@ SBScroll.ScrollingDirection=Enum.ScrollingDirection.Y
 SBScroll.ZIndex=14; SBScroll.Parent=Sidebar
 local SBList=Instance.new("Frame"); SBList.Size=UDim2.fromScale(1,0); SBList.AutomaticSize=Enum.AutomaticSize.Y
 SBList.BackgroundTransparency=1; SBList.ZIndex=14; SBList.Parent=SBScroll
-do local sbl=Instance.new("UIListLayout"); sbl.Padding=UDim.new(0,0); sbl.SortOrder=Enum.SortOrder.LayoutOrder; sbl.Parent=SBList end
-do local sbp=Instance.new("UIPadding"); sbp.PaddingLeft=UDim.new(0,8); sbp.PaddingRight=UDim.new(0,8); sbp.PaddingTop=UDim.new(0,4); sbp.Parent=SBList end
+local sbl=Instance.new("UIListLayout"); sbl.Padding=UDim.new(0,0); sbl.SortOrder=Enum.SortOrder.LayoutOrder; sbl.Parent=SBList
+local sbp=Instance.new("UIPadding"); sbp.PaddingLeft=UDim.new(0,8); sbp.PaddingRight=UDim.new(0,8); sbp.PaddingTop=UDim.new(0,4); sbp.Parent=SBList
 
 -- ============================================================
 -- CONTENT AREA
@@ -1122,8 +1128,8 @@ TabFadeOverlay.Name="TabFadeOverlay"
 TabFadeOverlay.Size=UDim2.fromScale(1,1); TabFadeOverlay.BackgroundColor3=Color3.fromRGB(20,20,24)
 TabFadeOverlay.BackgroundTransparency=1; TabFadeOverlay.BorderSizePixel=0
 TabFadeOverlay.ZIndex=20; TabFadeOverlay.Parent=ContentScroll
-do local cl=Instance.new("UIListLayout"); cl.Padding=UDim.new(0,0); cl.SortOrder=Enum.SortOrder.LayoutOrder; cl.Parent=ContentList end
-do local clp=Instance.new("UIPadding"); clp.PaddingLeft=UDim.new(0,24); clp.PaddingRight=UDim.new(0,24); clp.PaddingTop=UDim.new(0,22); clp.PaddingBottom=UDim.new(0,28); clp.Parent=ContentList end
+local cl=Instance.new("UIListLayout"); cl.Padding=UDim.new(0,0); cl.SortOrder=Enum.SortOrder.LayoutOrder; cl.Parent=ContentList
+local clp=Instance.new("UIPadding"); clp.PaddingLeft=UDim.new(0,24); clp.PaddingRight=UDim.new(0,24); clp.PaddingTop=UDim.new(0,22); clp.PaddingBottom=UDim.new(0,28); clp.Parent=ContentList
 
 -- Close any open dropdown if the user scrolls more than 45px from where it was opened
 local SCROLL_CLOSE_THRESHOLD = 45
@@ -1188,7 +1194,7 @@ DI_Frame.BackgroundTransparency=1
 DI_Frame.BorderSizePixel=0; DI_Frame.ClipsDescendants=false
 DI_Frame.ZIndex=100; DI_Frame.Visible=true; DI_Frame.Parent=ScreenGui
 DI_Frame.Position=UDim2.new(0.5,0,0,DI_Y); DI_Frame.Size=UDim2.fromOffset(DI_DOT,DI_DOT)  -- AnchorPoint(0.5,0.5) so Y is the midpoint
-do local diCorner=Instance.new("UICorner"); diCorner.CornerRadius=UDim.new(1,0); diCorner.Parent=DI_Frame end
+local diCorner=Instance.new("UICorner"); diCorner.CornerRadius=UDim.new(1,0); diCorner.Parent=DI_Frame
 local diStroke=Instance.new("UIStroke"); diStroke.Color=Color3.fromRGB(255,255,255)
 diStroke.Transparency=0.78; diStroke.Thickness=1
 diStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; diStroke.Parent=DI_Frame
@@ -1624,6 +1630,9 @@ local LG_scrollMem     = {}   -- remembers ContentScroll position per tab
 local LG_theme         = "glass"
 local applyTheme       = nil
 local ALPHA_WINDOW   = 0.18
+local ALPHA_TITLEBAR = 0.25
+local ALPHA_SIDEBAR  = 0.22
+local ALPHA_OVERLAY  = 0.15
 
 
 -- ============================================================
@@ -3330,16 +3339,18 @@ SRF.Visible = false
 SRF.ZIndex = 60
 SRF.Parent = ScreenGui
 -- Rounded corners + stroke only — no liquidGlass gradient (causes glitch on dark bg)
-do local srfCorner = Instance.new("UICorner"); srfCorner.CornerRadius = UDim.new(0,10); srfCorner.Parent = SRF end
-local srfStroke = Instance.new("UIStroke"); srfStroke.Color = Color3.fromRGB(255,255,255)
-srfStroke.Transparency = 0.78; srfStroke.Thickness = 1
-srfStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; srfStroke.Parent = SRF
-local srfList = Instance.new("UIListLayout"); srfList.Padding = UDim.new(0,0)
-srfList.SortOrder = Enum.SortOrder.LayoutOrder; srfList.Parent = SRF
-local srfPad = Instance.new("UIPadding"); srfPad.PaddingTop = UDim.new(0,4)
-srfPad.PaddingBottom = UDim.new(0,4)
-srfPad.PaddingLeft = UDim.new(0,6); srfPad.PaddingRight = UDim.new(0,6)
-srfPad.Parent = SRF
+do
+	local srfCorner = Instance.new("UICorner"); srfCorner.CornerRadius = UDim.new(0,10); srfCorner.Parent = SRF
+	local srfStroke = Instance.new("UIStroke"); srfStroke.Color = Color3.fromRGB(255,255,255)
+	srfStroke.Transparency = 0.78; srfStroke.Thickness = 1
+	srfStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; srfStroke.Parent = SRF
+	local srfList = Instance.new("UIListLayout"); srfList.Padding = UDim.new(0,0)
+	srfList.SortOrder = Enum.SortOrder.LayoutOrder; srfList.Parent = SRF
+	local srfPad = Instance.new("UIPadding"); srfPad.PaddingTop = UDim.new(0,4)
+	srfPad.PaddingBottom = UDim.new(0,4)
+	srfPad.PaddingLeft = UDim.new(0,6); srfPad.PaddingRight = UDim.new(0,6)
+	srfPad.Parent = SRF
+end
 
 clearSRF = function()
 	for _,c in ipairs(SRF:GetChildren()) do
@@ -3372,7 +3383,6 @@ end)
 
 -- Position and size the panel to sit just below the search bar in screen space.
 -- Uses RunService to wait one frame so AbsolutePosition is valid.
-local RunService = game:GetService("RunService")
 local LG_searchGen = 0  -- incremented each query; showSRF bails if stale
 local function showSRF(resultCount, gen)
 	-- Wait two frames so all AbsolutePositions are settled
@@ -4590,7 +4600,11 @@ local function makeEdge(axis, anchor)
 	return f
 end
 
-local glowEdges  = {makeEdge("H",0), makeEdge("H",1), makeEdge("V",0), makeEdge("V",1)}
+local edgeTop    = makeEdge("H", 0)
+local edgeBottom = makeEdge("H", 1)
+local edgeLeft   = makeEdge("V", 0)
+local edgeRight  = makeEdge("V", 1)
+local glowEdges  = {edgeTop, edgeBottom, edgeLeft, edgeRight}
 
 -- Subtle ambient bloom
 local GlowBloom = Instance.new("Frame")
@@ -4698,7 +4712,9 @@ LiquidGlass:SetConfig({
 
 -- ══════════════════════════════════════════════════════════════
 -- SINGLE DEMO TAB — shows every control type + all notifications
+-- (wrapped in do..end to stay within Lua's 200-local-per-chunk limit)
 -- ══════════════════════════════════════════════════════════════
+do
 local demo = LiquidGlass:AddTab("Demo", "General", "All features")
 
 -- ── Toggles ───────────────────────────────────────────────────
@@ -4860,7 +4876,7 @@ end)
 -- BOOT — do not remove
 -- ============================================================
 task.defer(doIntro)
-print("[Mac-Ui-Library] Loaded ✓")
+print("[LiquidGlassLib] v" .. LG_VERSION .. " loaded ✓")
 
 
 
@@ -4890,3 +4906,4 @@ poopSec:AddSlider("lolllloopsosls", 1, function(v)
     LiquidGlass:Notify("never mind", math.round(v*100).."%", "slider")
   end
 end)
+end -- close demo/test/poop do..end block
